@@ -7,6 +7,7 @@
 
 #include <glib.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <locale.h>
 #include <X11/Xlib.h>

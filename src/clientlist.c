@@ -10,7 +10,6 @@
 
 #include <glib.h>
 #include <assert.h>
-#include <stdio.h>
 #include <sys/types.h>
 #include <string.h>
 
@@ -45,30 +44,22 @@ char* g_netatom_names[NetCOUNT] = {
     [ NetWmWindowTypeNormal       ] = "_NET_WM_WINDOW_TYPE_NORMAL"      ,
 };
 
-/// TYPES ///
 typedef struct {
     char*   name;
     bool    (*matches)(char* cond_value, HSClient* client);
 } HSConditionType;
 
-/// DECLARATIONS ///
 static bool condition_class(char* rule, HSClient* client);
 static bool condition_title(char* rule, HSClient* client);
 static bool condition_windowtype(char* rule, HSClient* client);
 
-/// GLOBALS ///
 static HSConditionType g_condition_types[] = {
-    {   "class",    condition_class },
-    {   "title",    condition_title },
-    {   "windowtype", condition_windowtype },
+    { "class",    condition_class },
+    { "title",    condition_title },
+    { "windowtype", condition_windowtype },
 };
 
 //------
-void ewmh_update_active_window(Window win) {
-    XChangeProperty(g_display, g_root, g_netatom[NetActiveWindow],
-        XA_WINDOW, 32, PropModeReplace, (unsigned char*)&(win), 1);
-}
-
 void ewmh_handle_client_message(XEvent* event) {
     XClientMessageEvent* me = &(event->xclient);
     int index;
@@ -189,8 +180,6 @@ HSClient* manage_client(Window win) {
     unsigned int w, h;
     XGetGeometry(g_display, win, &root_win, &x, &y, &w, &h, &border, &depth);
     // treat wanted coordinates as floating coords
-    //client->float_size.x = x;
-    //client->float_size.y = y;
    XRectangle size = client->float_size;
    size.width = w;
    size.height = h;
@@ -203,7 +192,6 @@ HSClient* manage_client(Window win) {
     // apply rules
     int manage = 1;
     rules_apply(client, &manage);
-
     if (!manage) {
         destroy_client(client);
         // map it... just to be sure
@@ -260,8 +248,6 @@ void window_unfocus_last() {
 
     // give focus to root window
     XSetInputFocus(g_display, g_root, RevertToPointerRoot, CurrentTime);
-    if (lastfocus) 
-        ewmh_update_active_window(None);
     
     lastfocus = 0;
 }
@@ -273,13 +259,7 @@ void window_focus(Window window) {
     XSetWindowBorder(g_display, window, wincolors[1][ColWindowBorder]);
     // set keyboardfocus
     XSetInputFocus(g_display, window, RevertToPointerRoot, CurrentTime);
-    if (window != lastfocus) {
-        /* FIXME: this is a workaround because window_focus always is called
-         * twice.  see BUGS for more information
-         *
-         * only emit the hook if the focus *really* changes */
-        ewmh_update_active_window(window);
-    }
+    
     lastfocus = window;
     /* do some specials for the max layout */
     bool is_max_layout = frame_focused_window(g_cur_frame) == window
@@ -463,9 +443,8 @@ void client_set_pseudotile(HSClient* client, bool state) {
     size_t floatcount = f->content.clients.floatcount;
     floatcount += state ? 1 : -1;
     f->content.clients.floatcount = floatcount;
-    if(state){
+    if(state)
       client_center(client, find_monitor_with_tag(client->tag));
-   }
 
     monitor_apply_layout(find_monitor_with_tag(client->tag));
 }

@@ -7,7 +7,6 @@
 #include "layout.h"
 #include "config.h"
 
-#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #ifdef XINERAMA
@@ -301,10 +300,9 @@ void frame_apply_layout(HSFrame* frame, XRectangle rect) {
         rect.y += frame_border_width;
         rect.height -= frame_border_width * 2;
         rect.width -= frame_border_width * 2;
-        if (rect.width <= WINDOW_MIN_WIDTH || rect.height <= WINDOW_MIN_HEIGHT) {
-            // do nothing on invalid size
+        if (rect.width <= WINDOW_MIN_WIDTH || rect.height <= WINDOW_MIN_HEIGHT) 
             return;
-        }
+        
         XSetWindowBorderWidth(g_display, frame->window, frame_border_width);
         // set indicator frame
         unsigned long border_color = dc.colors[0][ColFrameBorder];

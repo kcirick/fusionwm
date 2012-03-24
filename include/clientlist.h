@@ -7,9 +7,6 @@
 
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
-#include <X11/Xatom.h>
-#include <glib.h>
-#include <stdbool.h>
 
 #include "layout.h"
 
@@ -53,7 +50,8 @@ typedef struct HSClient {
     char        title[256];  // This is never NULL
     bool        urgent;
     bool        fullscreen;
-    bool        pseudotile; // should be "floating" 
+    bool        floating;
+    bool        neverfocus;
 } HSClient;
 
 typedef struct {
@@ -61,7 +59,7 @@ typedef struct {
    char *cond_value;
    int   tag;
    int   manage;
-   int   pseudotile;
+   int   floating;
 } Rule;
 
 //---
@@ -72,7 +70,6 @@ void window_focus(Window window);
 void window_unfocus(Window window);
 void window_unfocus_last();
 
-// adds a new client to list of managed client windows
 HSClient* manage_client(Window win);
 void unmanage_client(Window win);
 
@@ -80,21 +77,19 @@ void unmanage_client(Window win);
 void destroy_client(HSClient* client);
 
 HSClient* get_client_from_window(Window window);
-HSClient* get_current_client();
 XRectangle client_outer_floating_rect(HSClient* client);
 
 void client_setup_border(HSClient* client, bool focused);
 void client_resize(HSClient* client, XRectangle rect);
 void client_resize_floating(HSClient* client, HSMonitor* m);
 void client_resize_fullscreen(HSClient* client, HSMonitor* m);
-void client_clear_urgent(HSClient* client);
 void client_update_wm_hints(HSClient* client);
 void client_update_title(HSClient* client);
 void client_close(const Arg *arg);
 
 void client_set_fullscreen(HSClient* client, bool state);
-void client_set_pseudotile(HSClient* client, bool state);
-void set_pseudotile(const Arg* arg);
+void client_set_floating(HSClient* client, bool state);
+void set_floating(const Arg* arg);
 
 void window_set_visible(Window win, bool visible);
 

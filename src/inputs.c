@@ -7,13 +7,11 @@
 #include "layout.h"
 #include "clientlist.h"
 #include "config.h"
+#include "binds.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include <X11/XKBlib.h>
 #include <X11/cursorfont.h>
-
-#include "binds.h"
 
 static unsigned int numlockmask = 0;
 
@@ -31,18 +29,16 @@ static unsigned int numlockmask;
 void mouse_start_drag(XEvent* ev) {
     XButtonEvent* be = &(ev->xbutton);
     g_drag_bind = mouse_binding_find(be->state, be->button);
-    if (!g_drag_bind) {
-        // there is no valid bind for this type of mouse event
-        return;
-    }
+    if (!g_drag_bind) return;
+    
     Window win = ev->xbutton.subwindow;
     g_win_drag_client = get_client_from_window(win);
     if (!g_win_drag_client) {
         g_drag_bind = NULL;
         return;
     }
-    if (!g_win_drag_client->pseudotile) {
-        // only can drag wins in  floating mode or pseudotile
+    if (!g_win_drag_client->floating) {
+        // only can drag wins in  floating mode
         g_win_drag_client = NULL;
         g_drag_bind = NULL;
         return;
@@ -52,7 +48,7 @@ void mouse_start_drag(XEvent* ev) {
     g_drag_monitor = get_current_monitor();
     XGrabPointer(g_display, win, True,
         PointerMotionMask|ButtonReleaseMask, GrabModeAsync,
-            GrabModeAsync, None, None, CurrentTime);
+        GrabModeAsync, None, None, CurrentTime);
 }
 
 void mouse_stop_drag() {
@@ -187,11 +183,9 @@ static bool intervals_intersect(int a_left, int a_right, int b_left, int b_right
 static void snap_1d(int x, int edge, int* delta) {
     // whats the vector from subject to edge?
     int cur_delta = edge - x;
-    // if distance is smaller then all other deltas
-    if (abs(cur_delta) < abs(*delta)) {
-        // then snap it, i.e. save vector
+    // if distance is smaller then all other deltas, then snap i.e. save vector
+    if (abs(cur_delta) < abs(*delta)) 
         *delta = cur_delta;
-    }
 }
 
 static int client_snap_helper(HSClient* candidate, struct SnapData* d) {
@@ -200,15 +194,13 @@ static int client_snap_helper(HSClient* candidate, struct SnapData* d) {
    XRectangle subject  = d->rect;
    XRectangle other    = client_outer_floating_rect(candidate);
    if (intervals_intersect(other.y, other.y + other.height, subject.y, subject.y + subject.height)) {
-      // check if x can snap to the right
+      // check if x can snap to the right or to the left
       if (d->flags & SNAP_EDGE_RIGHT)  snap_1d(subject.x + subject.width, other.x, &d->dx);
-      // or to the left
       if (d->flags & SNAP_EDGE_LEFT)   snap_1d(subject.x, other.x + other.width, &d->dx);
    }
    if (intervals_intersect(other.x, other.x + other.width, subject.x, subject.x + subject.width)) {
-      // if we can snap to the top
+      // if we can snap to the top or to the bottom
       if (d->flags & SNAP_EDGE_TOP)    snap_1d(subject.y, other.y + other.height, &d->dy);
-      // or to the bottom
       if (d->flags & SNAP_EDGE_BOTTOM) snap_1d(subject.y + subject.height, other.y, &d->dy);
    }
    return 0;
@@ -233,10 +225,10 @@ void client_snap_vector(struct HSClient* client, struct HSTag* tag,
 
     // snap to monitor edges
     HSMonitor* m = g_drag_monitor;
-    if (flags & SNAP_EDGE_TOP)      snap_1d(d.rect.y, 0, &d.dy);
+    if (flags & SNAP_EDGE_TOP)      snap_1d(d.rect.y, bh, &d.dy);
     if (flags & SNAP_EDGE_LEFT)     snap_1d(d.rect.x, 0, &d.dx);
     if (flags & SNAP_EDGE_RIGHT)    snap_1d(d.rect.x + d.rect.width, m->rect.width, &d.dx);
-    if (flags & SNAP_EDGE_BOTTOM)   snap_1d(d.rect.y + d.rect.height, m->rect.height - bh, &d.dy);
+    if (flags & SNAP_EDGE_BOTTOM)   snap_1d(d.rect.y + d.rect.height, m->rect.height, &d.dy);
     
     // snap to other clients
     frame_foreach_client(tag->frame, (ClientAction)client_snap_helper, &d);

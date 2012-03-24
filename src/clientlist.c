@@ -8,11 +8,6 @@
 #include "inputs.h"
 #include "config.h"
 
-#include <glib.h>
-#include <assert.h>
-#include <sys/types.h>
-#include <string.h>
-
 GHashTable* g_clients; // container of all clients
 unsigned long wincolors[NUMCOLORS][ColLast];
 
@@ -20,10 +15,10 @@ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms *
 static Atom g_wmatom[WMLast];
 
 static HSClient* create_client() {
-    HSClient* hc = g_new0(HSClient, 1);
-    hc->urgent = false;
+    HSClient* hc   = g_new0(HSClient, 1);
+    hc->urgent     = false;
     hc->fullscreen = false;
-    hc->pseudotile = false;
+    hc->floating   = false;
     return hc;
 }
 
@@ -61,66 +56,46 @@ static HSConditionType g_condition_types[] = {
 
 //------
 void ewmh_handle_client_message(XEvent* event) {
-    XClientMessageEvent* me = &(event->xclient);
-    int index;
-    for (index = 0; index < NetCOUNT; index++) {
-        if (me->message_type == g_netatom[index])
-            break;
-    }
-    if (index >= NetCOUNT) return;
-    
-    HSClient* client;
+   XClientMessageEvent* me = &(event->xclient);
+   int index;
+   for (index = 0; index < NetCOUNT; index++) {
+      if (me->message_type == g_netatom[index])
+         break;
+   }
+   if (index >= NetCOUNT) return;
 
-    switch (index) {
-        case NetActiveWindow:
-            // only steal focus it allowed to the current source
-            // (i.e.  me->data.l[0] in this case as specified by EWMH)
-            if (me->data.l[0] == 2) {
-                focus_window(me->window, true, true);
-            }
-            break;
-        case NetWmState:
-            client = get_client_from_window(me->window);
-            if (!client) break;
+   HSClient* client;
+   switch (index) {
+      case NetActiveWindow:
+         // only steal focus if allowed to the current source
+         // (i.e.  me->data.l[0] in this case as specified by EWMH)
+         if (me->data.l[0] == 2) 
+            focus_window(me->window, true, true);
+         break;
+      case NetWmState:
+         client = get_client_from_window(me->window);
+         if (!client) break;
 
-            /* mapping between EWMH atoms and client struct members */
-            struct {
-                int     atom_index;
-                bool    enabled;
-                void    (*callback)(HSClient*, bool);
-            } client_atoms[] = {
-                { NetWmStateFullscreen,
-                    client->fullscreen,     client_set_fullscreen },
+         /* me->data.l[1] and [2] describe the properties to alter */
+         for (int prop = 1; prop <= 2; prop++) {
+            if (me->data.l[prop] == 0) continue;
+            if (!(g_netatom[NetWmStateFullscreen] == me->data.l[prop])) continue;
+
+            bool new_value[] = {
+               [ _NET_WM_STATE_REMOVE ] = false,
+               [ _NET_WM_STATE_ADD    ] = true,
+               [ _NET_WM_STATE_TOGGLE ] = !client->fullscreen,
             };
+            int action = me->data.l[0];
 
-            /* me->data.l[1] and [2] describe the properties to alter */
-            for (int prop = 1; prop <= 2; prop++) {
-                if (me->data.l[prop] == 0) continue;
-                
-                /* check if we support the property data[prop] */
-                int i;
-                for (i = 0; i < LENGTH(client_atoms); i++) {
-                    if (g_netatom[client_atoms[i].atom_index] == me->data.l[prop])
-                        break;
-                }
-                if (i >= LENGTH(client_atoms))  continue;
-                
-                bool new_value[] = {
-                    [ _NET_WM_STATE_REMOVE  ] = false,
-                    [ _NET_WM_STATE_ADD     ] = true,
-                    [ _NET_WM_STATE_TOGGLE  ] = !client_atoms[i].enabled,
-                };
-                int action = me->data.l[0];
-                
-                /* change the value */
-                client_atoms[i].callback(client, new_value[action]);
-            }
-            break;
-        default:
-            break;
-    }
+            client_set_fullscreen(client, new_value[action]);
+         }
+         break;
+      default:
+         break;
+   }
 }
-//----
+
 void clientlist_init() {
     g_wmatom[WMProtocols] = XInternAtom(g_display, "WM_PROTOCOLS", False);
     g_wmatom[WMDelete] = XInternAtom(g_display, "WM_DELETE_WINDOW", False);
@@ -160,26 +135,36 @@ HSClient* get_client_from_window(Window window) {
 }
 
 static void window_grab_button(Window win){
-   XGrabButton(g_display, AnyButton, 0, win, true, ButtonPressMask,
+   XGrabButton(g_display, AnyButton, 0, win, False, ButtonPressMask,
       GrabModeSync, GrabModeSync, None, None);
 }
 
 HSClient* manage_client(Window win) {
-    if (get_client_from_window(win))            return NULL;
+   if (get_client_from_window(win)) return NULL;
 
-    // init client
-    HSClient* client = create_client();
-    HSMonitor* m = get_current_monitor();
-    // set to window properties
-    client->window = win;
-    client_update_title(client);
+   // init client
+   HSClient* client = create_client();
+   HSMonitor* m = get_current_monitor();
+   // set to window properties
+   client->window = win;
+   client_update_title(client);
 
-    unsigned int border, depth;
-    Window root_win;
-    int x, y;
-    unsigned int w, h;
-    XGetGeometry(g_display, win, &root_win, &x, &y, &w, &h, &border, &depth);
-    // treat wanted coordinates as floating coords
+   // apply rules
+   int manage = 1;
+   rules_apply(client, &manage);
+   if (!manage) {
+      destroy_client(client);
+      // map it... just to be sure
+      XMapWindow(g_display, win);
+      return NULL;
+   }
+
+   unsigned int border, depth;
+   Window root_win;
+   int x, y;
+   unsigned int w, h;
+   XGetGeometry(g_display, win, &root_win, &x, &y, &w, &h, &border, &depth);
+   // treat wanted coordinates as floating coords
    XRectangle size = client->float_size;
    size.width = w;
    size.height = h;
@@ -189,51 +174,41 @@ HSClient* manage_client(Window win) {
    client->last_size = size;
    XMoveResizeWindow(g_display, client->window, size.x, size.y, size.width, size.height);
 
-    // apply rules
-    int manage = 1;
-    rules_apply(client, &manage);
-    if (!manage) {
-        destroy_client(client);
-        // map it... just to be sure
-        XMapWindow(g_display, win);
-        return NULL;
-    }
+   // actually manage it
+   g_hash_table_insert(g_clients, &(client->window), client);
+   XSetWindowBorderWidth(g_display, win, window_border_width);
+   // insert to layout
+   if (!client->tag)   client->tag = m->tag;
 
-    // actually manage it
-    g_hash_table_insert(g_clients, &(client->window), client);
-    XSetWindowBorderWidth(g_display, win, window_border_width);
-    // insert to layout
-    if (!client->tag)   client->tag = m->tag;
+   // get events from window
+   client_update_wm_hints(client);
+   XSelectInput(g_display, win, CLIENT_EVENT_MASK);
+   window_grab_button(win);
+   frame_insert_window(client->tag->frame, win);
+   monitor_apply_layout(find_monitor_with_tag(client->tag));
 
-    // get events from window
-    XSelectInput(g_display, win, CLIENT_EVENT_MASK);
-    window_grab_button(win);
-    frame_insert_window(client->tag->frame, win);
-
-    monitor_apply_layout(find_monitor_with_tag(client->tag));
-
-    return client;
+   return client;
 }
 
 void unmanage_client(Window win) {
-    HSClient* client = get_client_from_window(win);
-    if (!client)   return;
-    
-    // remove from tag
-    frame_remove_window(client->tag->frame, win);
-    // and arrange monitor
-    HSMonitor* m = find_monitor_with_tag(client->tag);
-    if (m) monitor_apply_layout(m);
-    // ignore events from it
-    XSelectInput(g_display, win, 0);
-    XUngrabButton(g_display, AnyButton, AnyModifier, win);
-    // permanently remove it
-    g_hash_table_remove(g_clients, &win);
+   HSClient* client = get_client_from_window(win);
+   if (!client)   return;
+
+   // remove from tag
+   frame_remove_window(client->tag->frame, win);
+   // and arrange monitor
+   HSMonitor* m = find_monitor_with_tag(client->tag);
+   if (m) monitor_apply_layout(m);
+   // ignore events from it
+   XSelectInput(g_display, win, 0);
+   XUngrabButton(g_display, AnyButton, AnyModifier, win);
+   // permanently remove it
+   g_hash_table_remove(g_clients, &win);
 }
 
 // destroys a special client
 void destroy_client(HSClient* client) {
-    g_free(client);
+   g_free(client);
 }
 
 void window_unfocus(Window window) {
@@ -245,27 +220,19 @@ void window_unfocus(Window window) {
 static Window lastfocus = 0;
 void window_unfocus_last() {
     if (lastfocus)    window_unfocus(lastfocus);
+    lastfocus = 0;
 
     // give focus to root window
     XSetInputFocus(g_display, g_root, RevertToPointerRoot, CurrentTime);
-    
-    lastfocus = 0;
 }
 
 void window_focus(Window window) {
-    // unfocus last one
     window_unfocus(lastfocus);
-    // change window-colors
     XSetWindowBorder(g_display, window, wincolors[1][ColWindowBorder]);
-    // set keyboardfocus
-    XSetInputFocus(g_display, window, RevertToPointerRoot, CurrentTime);
-    
+    if(!get_client_from_window(window)->neverfocus)
+      XSetInputFocus(g_display, window, RevertToPointerRoot, CurrentTime);
+
     lastfocus = window;
-    /* do some specials for the max layout */
-    bool is_max_layout = frame_focused_window(g_cur_frame) == window
-                         && g_cur_frame->content.clients.layout == LAYOUT_MAX;
-    if (is_max_layout) 
-      XRaiseWindow(g_display, window);
 }
 
 void client_setup_border(HSClient* client, bool focused) {
@@ -276,13 +243,12 @@ void client_resize(HSClient* client, XRectangle rect) {
     HSMonitor* m;
     if (client->fullscreen && (m = find_monitor_with_tag(client->tag))) {
         client_resize_fullscreen(client, m);
-    } else if (client->pseudotile && (m = find_monitor_with_tag(client->tag))) {
+    } else if (client->floating && (m = find_monitor_with_tag(client->tag))) {
          client_resize_floating(client, m);
     } else {
        // ensure minimum size
        if (rect.width < WINDOW_MIN_WIDTH)    rect.width = WINDOW_MIN_WIDTH;
        if (rect.height < WINDOW_MIN_HEIGHT)  rect.height = WINDOW_MIN_HEIGHT;
-
        if (!client) return;
 
        Window win = client->window;
@@ -377,19 +343,6 @@ void window_set_visible(Window win, bool visible) {
     XUngrabServer(g_display);
 }
 
-void client_clear_urgent(HSClient* client) {
-    if (client->urgent) {
-        client->tag->urgent = false;
-        client->urgent = false;
-        XWMHints *wmh;
-        if(!(wmh = XGetWMHints(g_display, client->window)))
-            return;
-        wmh->flags &= ~XUrgencyHint;
-        XSetWMHints(g_display, client->window, wmh);
-        XFree(wmh);
-    }
-}
-
 void client_update_wm_hints(HSClient* client) {
     XWMHints* wmh = XGetWMHints(g_display, client->window);
     if (!wmh)   return;
@@ -406,18 +359,15 @@ void client_update_wm_hints(HSClient* client) {
             client->tag->urgent = client->urgent;
         }
     }
+    if(wmh->flags & InputHint)  client->neverfocus = !wmh->input;
+    else                        client->neverfocus = false;
+    XFree(wmh);
 }
 
 void client_update_title(HSClient* client) {
     gettextprop(client->window, g_netatom[NetWmName], client->title, sizeof(client->title));
     if(client->title[0] == '\0')
        strcpy(client->title, "broken");
-}
-
-HSClient* get_current_client() {
-    Window win = frame_focused_window(g_cur_frame);
-    if (!win) return NULL;
-    return get_client_from_window(win);
 }
 
 void client_set_fullscreen(HSClient* client, bool state) {
@@ -437,23 +387,26 @@ void client_set_fullscreen(HSClient* client, bool state) {
     monitor_apply_layout(find_monitor_with_tag(client->tag));
 }
 
-void client_set_pseudotile(HSClient* client, bool state) {
-    client->pseudotile = state;
-    HSFrame* f = frame_current_selection();
-    size_t floatcount = f->content.clients.floatcount;
+void client_set_floating(HSClient* client, bool state) {
+    client->floating = state;
+    HSFrame* frame = get_current_monitor()->tag->frame;
+    frame = frame_descend(frame);
+    size_t floatcount = frame->content.clients.floatcount;
     floatcount += state ? 1 : -1;
-    f->content.clients.floatcount = floatcount;
+    frame->content.clients.floatcount = floatcount;
     if(state)
       client_center(client, find_monitor_with_tag(client->tag));
 
     monitor_apply_layout(find_monitor_with_tag(client->tag));
 }
 
-void set_pseudotile(const Arg *arg){
-   HSClient *client = get_current_client();
+void set_floating(const Arg *arg){
+   Window win = frame_focused_window(g_cur_frame);
+   if (!win) return;
+   HSClient *client = get_client_from_window(win);
    if (!client) return;
 
-   client_set_pseudotile(client, !client->pseudotile);
+   client_set_floating(client, !client->floating);
 }
 
 // rules applying //
@@ -468,23 +421,22 @@ void rules_apply(HSClient* client, int *manage) {
          if(!strcmp(g_condition_types[j].name, r->condition))
             rule_match = g_condition_types[j].matches(r->cond_value, client);
       }
-
       if (rule_match) {
          client->tag = find_tag(tags[r->tag]);
          *manage = (int)r->manage;
-         client->pseudotile = r->pseudotile;
+         client->floating = r->floating;
       }
    }
 }
 
 /// CONDITIONS ///
 bool condition_class(char* cond_value, HSClient* client) {
-    XClassHint hint;
+    XClassHint hint = { NULL, NULL };
     XGetClassHint(g_display, client->window, &hint);
-    char* class_str = hint.res_class ? hint.res_class : "";
+    char* class_str = hint.res_class ? hint.res_class : "broken";
     bool match = !strcmp(cond_value, class_str);
-    XFree(hint.res_name);
-    XFree(hint.res_class);
+    if(hint.res_name)   XFree(hint.res_name);
+    if(hint.res_class)  XFree(hint.res_class);
 
     return match;
 }
@@ -513,7 +465,6 @@ bool condition_windowtype(char* cond_value, HSClient* client) {
         wintype= *(Atom *)buf;
         XFree(buf);
     }
-
     for (int i = NetWmWindowTypeFIRST; i <= NetWmWindowTypeLAST; i++) {
         // try to find the window type
         if (wintype == g_netatom[i]) 

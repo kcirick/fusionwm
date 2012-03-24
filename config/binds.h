@@ -16,7 +16,7 @@ static KeyBinding keys[] = {
    { MODKEY,                        XK_m,       set_layout,    {.v = "max"} },
    { MODKEY,                        XK_v,       set_layout,    {.v = "vertical"} },
    { MODKEY,                        XK_h,       set_layout,    {.v = "horizontal"} },
-   { MODKEY,                        XK_f,       set_pseudotile, {0} },
+   { MODKEY,                        XK_f,       set_floating,  {0} },
    { MODKEY|ShiftMask,              XK_v,       split_v,       {.f = 0.5} },
    { MODKEY|ShiftMask,              XK_h,       split_h,       {.f = 0.5} },
    { MODKEY,                        XK_r,       frame_remove,  {0} },

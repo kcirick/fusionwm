@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <locale.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>

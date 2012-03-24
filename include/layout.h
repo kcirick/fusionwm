@@ -5,11 +5,9 @@
 #ifndef _LAYOUT_H_
 #define _LAYOUT_H_
 
+#include <stdlib.h>
 #include <X11/cursorfont.h>
 #include "globals.h"
-
-#include <glib.h>
-#include <stdlib.h>
 
 enum {
     ALIGN_VERTICAL = 0,
@@ -66,28 +64,24 @@ typedef struct HSFrame {
 typedef struct HSMonitor {
     struct HSTag*      tag;    // currently viewed tag
     struct {
-        // last saved mouse position
         int x;
         int y;
-    } mouse;
+    } mouse; // last saved mouse position
     XRectangle  rect;   // area for this monitor
     Window barwin;
     int primary;
 } HSMonitor;
 
 typedef struct HSTag {
-    GString*    name;   // name of this tag
+    const char* name;   // name of this tag
     HSFrame*    frame;  // the master frame
-    int         flags;
     bool       urgent;
 } HSTag;
 
-// globals
 GArray*     g_tags; // Array of HSTag*
 GArray*     g_monitors; // Array of HSMonitor
 int         g_cur_monitor;
 HSFrame*    g_cur_frame; // currently selected frame
-bool        g_tag_flags_dirty;
 extern char* g_layout_names[];
 
 //--- Functions
@@ -97,7 +91,7 @@ void layout_destroy();
 // for frames
 HSFrame* frame_create_empty();
 void frame_insert_window(HSFrame* frame, Window window);
-HSFrame* frame_current_selection();
+HSFrame* frame_descend(HSFrame* frame);
 bool frame_remove_window(HSFrame* frame, Window window);
 void frame_destroy(HSFrame* frame, Window** buf, size_t* count);
 void frame_split(HSFrame* frame, int align, int fraction);
@@ -134,7 +128,6 @@ void move_tag(const Arg *arg);
 void tag_move_window(HSTag* target);
 
 // for monitors
-HSMonitor* monitor_with_frame(HSFrame* frame);
 HSMonitor* find_monitor_with_tag(HSTag* tag);
 void add_monitor(XRectangle rect, HSTag* tag, int primary);
 void monitor_focus_by_index(int new_selection);

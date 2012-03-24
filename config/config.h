@@ -10,10 +10,10 @@ static const int systray_width         = 100;
 #define NUMCOLORS 4
 static const char colors[NUMCOLORS][ColLast][8] = {
    // frame-border   window-border  foreground  background
-   { "#000000",      "#000000",     "#000000",  "#F6F6F6"}, // 0 - normal
-   { "#000000",      "#1793D0",     "#1793D0",  "#F6F6F6"}, // 1 - selected
-   { "#000000",      "#F6F6F6",     "#333333",  "#F6F6F6"}, // 2 - inactive tags
-   { "#000000",      "#FF0000",     "#FF0000",  "#F6F6F6"}, // 3 - urgent tags
+   { "#000000",      "#000000",     "#FFFFFF",  "#111111"}, // 0 - normal
+   { "#000000",      "#1793D0",     "#1793D0",  "#111111"}, // 1 - selected
+   { "#000000",      "#111111",     "#333333",  "#111111"}, // 2 - inactive tags
+   { "#000000",      "#FF0000",     "#FF0000",  "#111111"}, // 3 - urgent tags
 };
 
 #define NUMTAGS 7
@@ -38,6 +38,6 @@ static const Rule custom_rules[] = {
    { "windowtype", "_NET_WM_WINDOW_TYPE_DOCK",         -1, 0, 0 },
    { "class", "Gmrun",                                 -1, 1, 1 },
    { "class", "Canvas",                                -1, 1, 1 },
-   { "class", "net-sourceforge-jnlp-runtime-Boot",     -1, 1, 1 },
+   { "class", "com-sun-javaws-Main",                   -1, 1, 1 },
 };
 

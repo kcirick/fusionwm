@@ -5,9 +5,6 @@
 #ifndef _INPUTS_H_
 #define _INPUTS_H_
 
-#include <glib.h>
-#include <X11/Xlib.h>
-
 enum SnapFlags {
     // which edges are considered to snap
     SNAP_EDGE_TOP       = 0x01,
@@ -41,7 +38,6 @@ typedef struct KeyBinding {
 void inputs_init();
 void inputs_destroy();
 
-void key_find_binds(char* needle, GString** output);
 MouseBinding* mouse_binding_find(unsigned int modifiers, unsigned int button);
 void grab_keys();
 void grab_buttons();

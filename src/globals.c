@@ -5,7 +5,6 @@
 #include "globals.h"
 
 #include <stdarg.h>
-#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -34,7 +33,7 @@ bool gettextprop(Window w, Atom atom, char *text, unsigned int size) {
    int n;
    XTextProperty name;
 
-   if(!text || size == 0) return False;
+   if(!text || size==0) return False;
 
    text[0] = '\0';
    XGetTextProperty(g_display, w, &name, atom);
@@ -43,10 +42,10 @@ bool gettextprop(Window w, Atom atom, char *text, unsigned int size) {
    if(name.encoding == XA_STRING) {
       strncpy(text, (char *)name.value, size - 1);
    } else if(XmbTextPropertyToTextList(g_display, &name, &list, &n) >= Success && n > 0 && *list) {
-         strncpy(text, *list, size - 1);
-         XFreeStringList(list);
+      strncpy(text, *list, size - 1);
+      XFreeStringList(list);
    }
-   text[size - 1] = '\0';
+   text[size-1] = '\0';
    XFree(name.value);
    return True;
 }

@@ -8,13 +8,9 @@
 #include "globals.h"
 #include "config.h"
 
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <assert.h>
 
 static int (*g_xerrorxlib)(Display *, XErrorEvent *);
 static unsigned int numlockmask = 0;
@@ -56,7 +52,6 @@ void event_on_configure(XEvent event) {
         ce.override_redirect = False;
         ce.border_width = cre->border_width;
         ce.above = cre->above;
-        // FIXME: why send event and not XConfigureWindow or XMoveResizeWindow??
         XSendEvent(g_display, cre->window, False, StructureNotifyMask, (XEvent*)&ce);
     } else {
         // if client not known.. then allow configure.
@@ -93,10 +88,6 @@ int xerror(Display *dpy, XErrorEvent *ee) {
         return 0;
     
     return g_xerrorxlib(dpy, ee); /* may call exit */
-}
-
-int xerrordummy(Display *dpy, XErrorEvent *ee) {
-   return 0;
 }
 
 /* Startup Error handler to check if another window manager is already running. */
@@ -183,8 +174,8 @@ void buttonpress(XEvent* event) {
          i = x = 0;
          do
             x += get_textw(tags[i]);
-         while(be->x >= x && ++i < LENGTH(tags));
-         if(i < LENGTH(tags)){
+         while(be->x >= x && ++i < NUMTAGS);
+         if(i < NUMTAGS){
             click = ClkTagBar;
             arg.i = i;
          } else
@@ -305,7 +296,7 @@ void unmapnotify(XEvent* event) {
     unmanage_client(event->xunmap.window);
 }
 
-void setup(void){
+void setup(){
    // remove zombies on SIGCHLD
    sigchld(0);
 
@@ -322,7 +313,7 @@ void setup(void){
    layout_init();
 }
 
-void cleanup(void) {
+void cleanup() {
    inputs_destroy();
    clientlist_destroy();
    layout_destroy();
@@ -347,7 +338,6 @@ int main(int argc, char* argv[]) {
    setup();
    scan();
    all_monitors_apply_layout();
-   updatestatus();
 
    // Main loop
    XEvent event;

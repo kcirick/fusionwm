@@ -8,7 +8,7 @@
 #include "inputs.h"
 #include "config.h"
 
-GHashTable* g_clients; // container of all clients
+GArray* g_clients; // Array of HSClient*
 unsigned long wincolors[NUMCOLORS][ColLast];
 
 enum { WMProtocols, WMDelete, WMState, WMLast }; /* default atoms */
@@ -73,8 +73,8 @@ void clientlist_init() {
     g_wmatom[WMDelete] = XInternAtom(g_display, "WM_DELETE_WINDOW", False);
     g_wmatom[WMState] = XInternAtom(g_display, "WM_STATE", False);
     // init actual client list
-    g_clients = g_hash_table_new_full(g_int_hash, g_int_equal,
-                                      NULL, (GDestroyNotify)destroy_client);
+    g_clients = g_array_new(false, false, sizeof(HSClient*));
+
     //init colors
     for(int i=0; i<NUMCOLORS; i++){
        wincolors[i][ColFrameBorder] = getcolor(colors[i][ColFrameBorder]);
@@ -93,11 +93,15 @@ void clientlist_init() {
 }
 
 void clientlist_destroy() {
-    g_hash_table_destroy(g_clients);
+   g_array_free(g_clients, true);
 }
 
 HSClient* get_client_from_window(Window window) {
-    return (HSClient*) g_hash_table_lookup(g_clients, &window);
+   for(int i=0; i<g_clients->len; i++){
+      HSClient* client = g_array_index(g_clients, HSClient*, i);
+      if(client->window == window) return client;
+   }
+   return NULL;
 }
 
 static void window_grab_button(Window win){
@@ -141,7 +145,7 @@ HSClient* manage_client(Window win) {
    XMoveResizeWindow(g_display, client->window, size.x, size.y, size.width, size.height);
 
    // actually manage it
-   g_hash_table_insert(g_clients, &(client->window), client);
+   g_array_append_val(g_clients, client);
    XSetWindowBorderWidth(g_display, win, window_border_width);
    // insert to layout
    if (!client->tag)   client->tag = m->tag;
@@ -169,7 +173,10 @@ void unmanage_client(Window win) {
    XSelectInput(g_display, win, 0);
    XUngrabButton(g_display, AnyButton, AnyModifier, win);
    // permanently remove it
-   g_hash_table_remove(g_clients, &win);
+   for(int i=0; i<g_clients->len; i++){
+      if(g_array_index(g_clients, HSClient*, i) == client)
+         g_array_remove_index(g_clients, i);
+   }
 }
 
 // destroys a special client

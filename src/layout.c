@@ -37,6 +37,10 @@ char* g_layout_names[] = {
     NULL,
 };
 
+GArray*     g_tags; // Array of HSTag*
+GArray*     g_monitors; // Array of HSMonitor
+//extern char* g_layout_names[];
+
 void layout_init() {
     g_cur_monitor = 0;
     g_tags = g_array_new(false, false, sizeof(HSTag*));

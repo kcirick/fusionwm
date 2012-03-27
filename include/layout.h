@@ -78,11 +78,8 @@ typedef struct HSTag {
     bool       urgent;
 } HSTag;
 
-GArray*     g_tags; // Array of HSTag*
-GArray*     g_monitors; // Array of HSMonitor
 int         g_cur_monitor;
 HSFrame*    g_cur_frame; // currently selected frame
-extern char* g_layout_names[];
 
 //--- Functions
 void layout_init();

@@ -30,14 +30,9 @@ static const float resize_step = 0.025;
 
 //-- Rules ------------------------------------------------------------------------------
 static const Rule custom_rules[] = {
-   //Condition, Value || Tag, Manage, Pseudotile
-   { "windowtype", "_NET_WM_WINDOW_TYPE_DIALOG",       -1, 1, 1 },
-   { "windowtype", "_NET_WM_WINDOW_TYPE_UTILITY",      -1, 1, 1 },
-   { "windowtype", "_NET_WM_WINDOW_TYPE_SPLASH",       -1, 1, 1 },
-   { "windowtype", "_NET_WM_WINDOW_TYPE_NOTIFICATION", -1, 0, 0 },
-   { "windowtype", "_NET_WM_WINDOW_TYPE_DOCK",         -1, 0, 0 },
-   { "class", "Gmrun",                                 -1, 1, 1 },
-   { "class", "Canvas",                                -1, 1, 1 },
-   { "class", "com-sun-javaws-Main",                   -1, 1, 1 },
+   //Class                    Tag,  Float
+   { "Gmrun",                 -1,   1 },
+   { "Canvas",                -1,   1 },
+   { "com-sun-javaws-Main",   -1,   1 },
 };
 

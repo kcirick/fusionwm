@@ -18,7 +18,6 @@
 
 enum {
     NetSupported = 0,
-    NetActiveWindow,
     NetWmName,
     NetWmWindowType,
     NetWmState,
@@ -27,7 +26,6 @@ enum {
     /* window types */
     ENUM_WITH_ALIAS(NetWmWindowTypeDesktop, NetWmWindowTypeFIRST),
     NetWmWindowTypeDock,
-    NetWmWindowTypeUtility,
     NetWmWindowTypeSplash,
     NetWmWindowTypeDialog,
     NetWmWindowTypeNotification,
@@ -55,10 +53,8 @@ typedef struct HSClient {
 } HSClient;
 
 typedef struct {
-   char *condition;
-   char *cond_value;
+   char *class_str;
    int   tag;
-   int   manage;
    int   floating;
 } Rule;
 
@@ -95,7 +91,6 @@ void window_set_visible(Window win, bool visible);
 
 // set the desktop property of a window
 void ewmh_handle_client_message(XEvent* event);
-
 void rules_apply(struct HSClient* client, int *manage);
 
 #endif

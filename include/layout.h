@@ -115,8 +115,7 @@ int frame_foreach_client(HSFrame* frame, ClientAction action, void* data);
 void set_layout(const Arg *arg);
 
 Window frame_focused_window(HSFrame* frame);
-bool frame_focus_window(HSFrame* frame, Window win);
-bool focus_window(Window win, bool switch_tag, bool switch_monitor);
+void focus_window(Window win, bool switch_tag, bool switch_monitor);
 void shift(const Arg *arg);
 void frame_remove(const Arg *arg);
 void frame_set_visible(HSFrame* frame, bool visible);

@@ -6,13 +6,12 @@
 #define _INPUTS_H_
 
 enum SnapFlags {
-    // which edges are considered to snap
-    SNAP_EDGE_TOP       = 0x01,
-    SNAP_EDGE_BOTTOM    = 0x02,
-    SNAP_EDGE_LEFT      = 0x04,
-    SNAP_EDGE_RIGHT     = 0x08,
-    SNAP_EDGE_ALL       =
-        SNAP_EDGE_TOP | SNAP_EDGE_BOTTOM | SNAP_EDGE_LEFT | SNAP_EDGE_RIGHT,
+   // which edges are considered to snap
+   SNAP_EDGE_TOP    = 0x01,
+   SNAP_EDGE_BOTTOM = 0x02,
+   SNAP_EDGE_LEFT   = 0x04,
+   SNAP_EDGE_RIGHT  = 0x08,
+   SNAP_EDGE_ALL    = SNAP_EDGE_TOP|SNAP_EDGE_BOTTOM|SNAP_EDGE_LEFT|SNAP_EDGE_RIGHT,
 };
 
 // foreward declarations

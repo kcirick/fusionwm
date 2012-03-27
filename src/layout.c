@@ -485,6 +485,11 @@ void frame_split(HSFrame* frame, int align, int fraction) {
     frame->content.layout.fraction = fraction;
     // set focus
     g_cur_frame = first;
+    if(first->content.clients.count > 1){
+       Window thiswin = first->content.clients.buf[first->content.clients.count-1];
+      frame_remove_window(first, thiswin);
+      frame_insert_window(second, thiswin);
+    }
     // redraw monitor if exists
     monitor_apply_layout(get_current_monitor());
 }
@@ -599,19 +604,12 @@ int frame_inner_neighbour_index(HSFrame* frame, char direction) {
     }
     int selection = frame->content.clients.selection;
     int count = frame->content.clients.count;
-    switch (frame->content.clients.layout) {
-        case LAYOUT_VERTICAL:
-            if (direction == 'd') index = selection + 1;
-            if (direction == 'u') index = selection - 1;
-            break;
-        case LAYOUT_HORIZONTAL:
-            if (direction == 'r') index = selection + 1;
-            if (direction == 'l') index = selection - 1;
-            break;
-        case LAYOUT_MAX:
-            break;
-        default:
-            break;
+    if(frame->content.clients.layout == LAYOUT_VERTICAL) {
+       if (direction == 'd') index = selection + 1;
+       if (direction == 'u') index = selection - 1;
+    } else if (frame->content.clients.layout == LAYOUT_HORIZONTAL) {
+       if (direction == 'r') index = selection + 1;
+       if (direction == 'l') index = selection - 1;
     }
     // check that index is valid
     if (index < 0 || index >= count) index = -1;
@@ -705,62 +703,56 @@ Window frame_focused_window(HSFrame* frame) {
     return (Window)0;
 }
 
-// try to focus window in frame
-// returns true if win was found and focused, else returns false
-bool frame_focus_window(HSFrame* frame, Window win) {
-    if (!frame) return false;
-    
-    if (frame->type == TYPE_CLIENTS) {
-        size_t count = frame->content.clients.count;
-        Window* buf = frame->content.clients.buf;
-        // search for win in buf
-        for (int i=0; i<count; i++) {
-            if (buf[i] == win) {
-                frame->content.clients.selection = i;
-                return true;
-            }
-        }
-        return false;
-    } else { // type == TYPE_FRAMES: search in subframes
-        bool found = frame_focus_window(frame->content.layout.a, win);
-        if (found) {
-            // set selection to first frame
-            frame->content.layout.selection = 0;
+bool frame_focus_window(HSFrame* frame, Window win){
+   if(!frame) return false;
+
+   if(frame->type == TYPE_CLIENTS){
+      size_t count = frame->content.clients.count;
+      Window* buf = frame->content.clients.buf;
+      // search for win iin buf
+      for(int i=0; i<count; i++){
+         if(buf[i] == win){
+            //if found, set focus to it
+            frame->content.clients.selection = i;
             return true;
-        }
-        found = frame_focus_window(frame->content.layout.b, win);
-        if (found) {
-            // set selection to second frame
-            frame->content.layout.selection = 1;
-            return true;
-        }
-        return false;
-    }
+         }
+      }
+   } else { // type == TYPE_FRAMES
+      //search in subframes
+      bool found = frame_focus_window(frame->content.layout.a, win);
+      if(found) {
+         frame->content.layout.selection = 0;
+         return true;
+      }
+      found = frame_focus_window(frame->content.layout.b, win);
+      if(found) {
+         frame->content.layout.selection = 1;
+         return true;
+      }
+   }
+   return false;
 }
 
 // focus a window
 // switch_tag if switch tag to focus to window
 // switch_monitor if switch monitor to focus to window
 // returns if window was focused or not
-bool focus_window(Window win, bool switch_tag, bool switch_monitor) {
+void focus_window(Window win, bool switch_tag, bool switch_monitor) {
     HSClient* client = get_client_from_window(win);
-    if (!client) return false;
+    if (!client) return;
     
     HSTag* tag = client->tag;
     assert(client->tag);
     HSMonitor* monitor = find_monitor_with_tag(tag);
     HSMonitor* cur_mon = get_current_monitor();
-    if (monitor != cur_mon && !switch_monitor) {
-        // if we are not allowed to switch tag and tag is not on 
-        // current monitor (or on no monitor) then we cannot focus the window
-        return false;
-    }
-    if (monitor == NULL && !switch_tag) 
-        return false;
+    // if we are not allowed to switch tag and tag is not on 
+    // current monitor (or on no monitor) then we cannot focus the window
+    if (monitor != cur_mon && !switch_monitor)  return;
+    if (monitor == NULL && !switch_tag)         return;
     
     if (monitor != cur_mon && monitor != NULL) {
         if (!switch_monitor) {
-            return false;
+            return;
         } else {
             // switch monitor
             monitor_focus_by_index(monitor_index_of(monitor));
@@ -770,14 +762,12 @@ bool focus_window(Window win, bool switch_tag, bool switch_monitor) {
     }
     monitor_set_tag(cur_mon, tag);
     cur_mon = get_current_monitor();
-    if (cur_mon->tag != tag) 
-        return false;
+    if (cur_mon->tag != tag) return;
     
     // now the right tag is visible, now focus it
-    bool found = frame_focus_window(tag->frame, win);
+    frame_focus_window(tag->frame, win);
     frame_focus_recursive(tag->frame);
     monitor_apply_layout(cur_mon);
-    return found;
 }
 
 int frame_focus_recursive(HSFrame* frame) {

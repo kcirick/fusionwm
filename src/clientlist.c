@@ -11,7 +11,7 @@
 GHashTable* g_clients; // container of all clients
 unsigned long wincolors[NUMCOLORS][ColLast];
 
-enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
+enum { WMProtocols, WMDelete, WMState, WMLast }; /* default atoms */
 static Atom g_wmatom[WMLast];
 
 static HSClient* create_client() {
@@ -25,33 +25,16 @@ static HSClient* create_client() {
 /* list of names of all _NET-atoms */
 char* g_netatom_names[NetCOUNT] = {
     [ NetSupported                ] = "_NET_SUPPORTED"                  ,
-    [ NetActiveWindow             ] = "_NET_ACTIVE_WINDOW"              ,
     [ NetWmName                   ] = "_NET_WM_NAME"                    ,
     [ NetWmWindowType             ] = "_NET_WM_WINDOW_TYPE"             ,
     [ NetWmState                  ] = "_NET_WM_STATE"                   ,
     [ NetWmStateFullscreen        ] = "_NET_WM_STATE_FULLSCREEN"        ,
     [ NetWmWindowTypeDesktop      ] = "_NET_WM_WINDOW_TYPE_DESKTOP"     ,
     [ NetWmWindowTypeDock         ] = "_NET_WM_WINDOW_TYPE_DOCK"        ,
-    [ NetWmWindowTypeUtility      ] = "_NET_WM_WINDOW_TYPE_UTILITY"     ,
     [ NetWmWindowTypeSplash       ] = "_NET_WM_WINDOW_TYPE_SPLASH"      ,
     [ NetWmWindowTypeDialog       ] = "_NET_WM_WINDOW_TYPE_DIALOG"      ,
     [ NetWmWindowTypeNotification ] = "_NET_WM_WINDOW_TYPE_NOTIFICATION",
     [ NetWmWindowTypeNormal       ] = "_NET_WM_WINDOW_TYPE_NORMAL"      ,
-};
-
-typedef struct {
-    char*   name;
-    bool    (*matches)(char* cond_value, HSClient* client);
-} HSConditionType;
-
-static bool condition_class(char* rule, HSClient* client);
-static bool condition_title(char* rule, HSClient* client);
-static bool condition_windowtype(char* rule, HSClient* client);
-
-static HSConditionType g_condition_types[] = {
-    { "class",    condition_class },
-    { "title",    condition_title },
-    { "windowtype", condition_windowtype },
 };
 
 //------
@@ -64,35 +47,24 @@ void ewmh_handle_client_message(XEvent* event) {
    }
    if (index >= NetCOUNT) return;
 
-   HSClient* client;
-   switch (index) {
-      case NetActiveWindow:
-         // only steal focus if allowed to the current source
-         // (i.e.  me->data.l[0] in this case as specified by EWMH)
-         if (me->data.l[0] == 2) 
-            focus_window(me->window, true, true);
-         break;
-      case NetWmState:
-         client = get_client_from_window(me->window);
-         if (!client) break;
+   HSClient* client = get_client_from_window(me->window);
+   if (!client) return;
 
-         /* me->data.l[1] and [2] describe the properties to alter */
-         for (int prop = 1; prop <= 2; prop++) {
-            if (me->data.l[prop] == 0) continue;
-            if (!(g_netatom[NetWmStateFullscreen] == me->data.l[prop])) continue;
+   if(index == NetWmState){
+      /* me->data.l[1] and [2] describe the properties to alter */
+      for (int prop = 1; prop <= 2; prop++) {
+         if (me->data.l[prop] == 0) continue;
+         if (!(g_netatom[NetWmStateFullscreen] == me->data.l[prop])) continue;
 
-            bool new_value[] = {
-               [ _NET_WM_STATE_REMOVE ] = false,
-               [ _NET_WM_STATE_ADD    ] = true,
-               [ _NET_WM_STATE_TOGGLE ] = !client->fullscreen,
-            };
-            int action = me->data.l[0];
+         bool new_value[] = {
+            [ _NET_WM_STATE_REMOVE ] = false,
+            [ _NET_WM_STATE_ADD    ] = true,
+            [ _NET_WM_STATE_TOGGLE ] = !client->fullscreen,
+         };
+         int action = me->data.l[0];
 
-            client_set_fullscreen(client, new_value[action]);
-         }
-         break;
-      default:
-         break;
+         client_set_fullscreen(client, new_value[action]);
+      }
    }
 }
 
@@ -100,7 +72,6 @@ void clientlist_init() {
     g_wmatom[WMProtocols] = XInternAtom(g_display, "WM_PROTOCOLS", False);
     g_wmatom[WMDelete] = XInternAtom(g_display, "WM_DELETE_WINDOW", False);
     g_wmatom[WMState] = XInternAtom(g_display, "WM_STATE", False);
-    g_wmatom[WMTakeFocus] = XInternAtom(g_display, "WM_TAKE_FOCUS", False);
     // init actual client list
     g_clients = g_hash_table_new_full(g_int_hash, g_int_equal,
                                       NULL, (GDestroyNotify)destroy_client);
@@ -113,13 +84,8 @@ void clientlist_init() {
     }
 
     /* init ewmh net atoms */
-    for (int i = 0; i < NetCOUNT; i++) {
-        if (g_netatom_names[i] == NULL) {
-            g_warning("no name specified in g_netatom_names for atom number %d\n", i);
-            continue;
-        }
+    for (int i = 0; i < NetCOUNT; i++) 
         g_netatom[i] = ATOM(g_netatom_names[i]);
-    }
 
     /* tell which ewmh atoms are supported */
     XChangeProperty(g_display, g_root, g_netatom[NetSupported], XA_ATOM, 32,
@@ -309,7 +275,6 @@ void client_center(HSClient* client, HSMonitor *m) {
    XMoveResizeWindow(g_display, client->window, size.x, size.y, size.width, size.height);
 }
 
-
 XRectangle client_outer_floating_rect(HSClient* client) {
     XRectangle rect = client->float_size;
     rect.width  += window_border_width * 2;
@@ -411,66 +376,41 @@ void set_floating(const Arg *arg){
 
 // rules applying //
 void rules_apply(HSClient* client, int *manage) {
-   const Rule *r;
+   int di;
+   unsigned long dl;
+   unsigned char *buf =  NULL;
+   Atom da, wintype = None;
+   int status = XGetWindowProperty( g_display, client->window, g_netatom[NetWmWindowType],
+         0L, sizeof wintype, False, XA_ATOM, &da, &di, &dl, &dl, &buf );
+   
+   if(status == Success && buf) {
+      wintype= *(Atom *)buf;
+      XFree(buf);
+   } else {
+      return;
+   }
+   
+   if(wintype == g_netatom[NetWmWindowTypeDialog] || 
+      wintype == g_netatom[NetWmWindowTypeSplash]){
+      client->tag = find_tag(tags[-1]);
+      client->floating = 1;
+      return;
+   } else if(wintype == g_netatom[NetWmWindowTypeNotification] ||
+             wintype == g_netatom[NetWmWindowTypeDock]){
+      *manage = 0;
+      return;
+   }
 
-   for(int i=0; i< LENGTH(custom_rules); i++){
-      r = &custom_rules[i];
-      bool rule_match = true; // if entire rule matches
-
-      for(int j=0; j<LENGTH(g_condition_types); j++){
-         if(!strcmp(g_condition_types[j].name, r->condition))
-            rule_match = g_condition_types[j].matches(r->cond_value, client);
-      }
-      if (rule_match) {
-         client->tag = find_tag(tags[r->tag]);
-         *manage = (int)r->manage;
-         client->floating = r->floating;
+   XClassHint hint;
+   XGetClassHint(g_display, client->window, &hint);
+   char* class_str = hint.res_class ? hint.res_class : "broken";
+   for(int i=0; i<LENGTH(custom_rules); i++){
+      if(!strcmp(custom_rules[i].class_str, class_str)){
+         client->tag = find_tag(tags[custom_rules[i].tag]);
+         client->floating = custom_rules[i].floating;
       }
    }
-}
-
-/// CONDITIONS ///
-bool condition_class(char* cond_value, HSClient* client) {
-    XClassHint hint = { NULL, NULL };
-    XGetClassHint(g_display, client->window, &hint);
-    char* class_str = hint.res_class ? hint.res_class : "broken";
-    bool match = !strcmp(cond_value, class_str);
-    if(hint.res_name)   XFree(hint.res_name);
-    if(hint.res_class)  XFree(hint.res_class);
-
-    return match;
-}
-
-bool condition_title(char* cond_value, HSClient* client) {
-    return !strcmp(cond_value, client->title);
-}
-
-bool condition_windowtype(char* cond_value, HSClient* client) {
-    long bufsize = 10;
-    char *buf;
-    Atom type_ret, wintype;
-    int format;
-    unsigned long items, bytes_left;
-    long offset = 0;
-
-    int status = XGetWindowProperty( g_display, client->window, g_netatom[NetWmWindowType],
-                                       offset, bufsize, False, ATOM("ATOM"),
-                                       &type_ret, &format, &items, &bytes_left,
-                                       (unsigned char**)&buf );
-    // we only need precisely four bytes (one Atom)
-    // if there are bytes left, something went wrong
-    if(status != Success || bytes_left > 0 || items < 1 || buf == NULL) {
-        return false;
-    } else {
-        wintype= *(Atom *)buf;
-        XFree(buf);
-    }
-    for (int i = NetWmWindowTypeFIRST; i <= NetWmWindowTypeLAST; i++) {
-        // try to find the window type
-        if (wintype == g_netatom[i]) 
-            return !strcmp(cond_value, g_netatom_names[i]);
-    }
-
-    return false;
+   if(hint.res_name)   XFree(hint.res_name);
+   if(hint.res_class)  XFree(hint.res_class);
 }
 

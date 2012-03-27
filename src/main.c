@@ -32,8 +32,8 @@ void propertynotify(XEvent* event);
 void unmapnotify(XEvent* event);
 void expose(XEvent* event);
 
-enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
-       ClkClientWin, ClkRootWin, ClkLast };             /* clicks */
+/* clicks */
+enum { ClkTagBar, ClkStatusText, ClkWinTitle, ClkClientWin, ClkRootWin, ClkLast }; 
 
 // handle x-events:
 void event_on_configure(XEvent event) {
@@ -137,21 +137,21 @@ void sigchld(int unused){
 }
 
 static void (*handler[LASTEvent]) (XEvent *) = {
-   [ ButtonPress       ] = buttonpress,
-   [ ButtonRelease     ] = buttonrelease,
-   [ ClientMessage     ] = ewmh_handle_client_message,
-   [ ConfigureRequest  ] = configurerequest,
-   [ ConfigureNotify   ] = configurenotify,
-   [ DestroyNotify     ] = destroynotify,
-   [ EnterNotify       ] = enternotify,
-   [ Expose            ] = expose,
-   [ KeyPress          ] = keypress,
-   [ MappingNotify     ] = mappingnotify,
-   [ MotionNotify      ] = motionnotify,
-   [ MapNotify         ] = mapnotify,
-   [ MapRequest        ] = maprequest,
-   [ PropertyNotify    ] = propertynotify,
-   [ UnmapNotify       ] = unmapnotify
+   [ ButtonPress      ] = buttonpress,
+   [ ButtonRelease    ] = buttonrelease,
+   [ ClientMessage    ] = ewmh_handle_client_message,
+   [ ConfigureRequest ] = configurerequest,
+   [ ConfigureNotify  ] = configurenotify,
+   [ DestroyNotify    ] = destroynotify,
+   [ EnterNotify      ] = enternotify,
+   [ Expose           ] = expose,
+   [ KeyPress         ] = keypress,
+   [ MappingNotify    ] = mappingnotify,
+   [ MotionNotify     ] = motionnotify,
+   [ MapNotify        ] = mapnotify,
+   [ MapRequest       ] = maprequest,
+   [ PropertyNotify   ] = propertynotify,
+   [ UnmapNotify      ] = unmapnotify
 };
 
 // event handler implementations 
@@ -162,13 +162,12 @@ void buttonpress(XEvent* event) {
    HSMonitor *m;
 
    // focus monitor if necessary
-   if((m = wintomon(be->window)) && m != get_current_monitor()) {
+   if((m = wintomon(be->window)) && m != get_current_monitor()) 
       monitor_focus_by_index(monitor_index_of(m));
-   }
+   
    if (be->window == g_root && be->subwindow != None) {
-      if (mouse_binding_find(be->state, be->button)) {
+      if (mouse_binding_find(be->state, be->button)) 
          mouse_start_drag(event);
-      }
    } else {
       if(be->window == get_current_monitor()->barwin){
          i = x = 0;
@@ -217,7 +216,6 @@ void clientmessage(XEvent* event) {
 }
 
 void destroynotify(XEvent* event) {
-    // try to unmanage it
     unmanage_client(event->xdestroywindow.window);
 }
 

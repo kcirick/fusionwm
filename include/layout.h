@@ -9,22 +9,9 @@
 #include <X11/cursorfont.h>
 #include "globals.h"
 
-enum {
-    ALIGN_VERTICAL = 0,
-    ALIGN_HORIZONTAL,
-};
-
-enum {
-    LAYOUT_VERTICAL = 0,
-    LAYOUT_HORIZONTAL,
-    LAYOUT_MAX,
-    LAYOUT_COUNT,
-};
-
-enum {
-    TYPE_CLIENTS = 0,
-    TYPE_FRAMES,
-};
+enum { ALIGN_VERTICAL, ALIGN_HORIZONTAL };
+enum { LAYOUT_VERTICAL, LAYOUT_HORIZONTAL, LAYOUT_MAX, LAYOUT_COUNT };
+enum { TYPE_CLIENTS, TYPE_FRAMES };
 
 enum { ColFrameBorder, ColWindowBorder, ColFG, ColBG, ColLast }; /* color */
 

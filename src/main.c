@@ -17,15 +17,12 @@ static unsigned int numlockmask = 0;
 
 // handler for X-Events
 void buttonpress(XEvent* event);
-void buttonrelease(XEvent* event);
 void configurerequest(XEvent* event);
 void configurenotify(XEvent* event);
-void clientmessage(XEvent* event);
 void destroynotify(XEvent* event);
 void enternotify(XEvent* event);
 void keypress(XEvent* event);
 void mappingnotify(XEvent* event);
-void motionnotify(XEvent* event);
 void mapnotify(XEvent *event);
 void maprequest(XEvent* event);
 void propertynotify(XEvent* event);
@@ -34,39 +31,6 @@ void expose(XEvent* event);
 
 /* clicks */
 enum { ClkTagBar, ClkStatusText, ClkWinTitle, ClkClientWin, ClkRootWin, ClkLast }; 
-
-// handle x-events:
-void event_on_configure(XEvent event) {
-    XConfigureRequestEvent* cre = &event.xconfigurerequest;
-    HSClient* client = get_client_from_window(cre->window);
-    XConfigureEvent ce;
-    ce.type = ConfigureNotify;
-    ce.display = g_display;
-    ce.event = cre->window;
-    ce.window = cre->window;
-    if (client) {
-        ce.x = client->last_size.x;
-        ce.y = client->last_size.y;
-        ce.width = client->last_size.width;
-        ce.height = client->last_size.height;
-        ce.override_redirect = False;
-        ce.border_width = cre->border_width;
-        ce.above = cre->above;
-        XSendEvent(g_display, cre->window, False, StructureNotifyMask, (XEvent*)&ce);
-    } else {
-        // if client not known.. then allow configure.
-        // its probably a nice conky or dzen2 bar :)
-        XWindowChanges wc;
-        wc.x = cre->x;
-        wc.y = cre->y;
-        wc.width = cre->width;
-        wc.height = cre->height;
-        wc.border_width = cre->border_width;
-        wc.sibling = cre->above;
-        wc.stack_mode = cre->detail;
-        XConfigureWindow(g_display, cre->window, cre->value_mask, &wc);
-    }
-}
 
 /* There's no way to check accesses to destroyed windows, thus those cases are
  * ignored (especially on UnmapNotify's).  Other types of errors call Xlibs
@@ -138,7 +102,6 @@ void sigchld(int unused){
 
 static void (*handler[LASTEvent]) (XEvent *) = {
    [ ButtonPress      ] = buttonpress,
-   [ ButtonRelease    ] = buttonrelease,
    [ ClientMessage    ] = ewmh_handle_client_message,
    [ ConfigureRequest ] = configurerequest,
    [ ConfigureNotify  ] = configurenotify,
@@ -147,7 +110,6 @@ static void (*handler[LASTEvent]) (XEvent *) = {
    [ Expose           ] = expose,
    [ KeyPress         ] = keypress,
    [ MappingNotify    ] = mappingnotify,
-   [ MotionNotify     ] = motionnotify,
    [ MapNotify        ] = mapnotify,
    [ MapRequest       ] = maprequest,
    [ PropertyNotify   ] = propertynotify,
@@ -166,8 +128,7 @@ void buttonpress(XEvent* event) {
       monitor_focus_by_index(monitor_index_of(m));
    
    if (be->window == g_root && be->subwindow != None) {
-      if (mouse_binding_find(be->state, be->button)) 
-         mouse_start_drag(event);
+      mouse_function(event);
    } else {
       if(be->window == get_current_monitor()->barwin){
          i = x = 0;
@@ -195,12 +156,36 @@ void buttonpress(XEvent* event) {
    }
 }
 
-void buttonrelease(XEvent* event) {
-    mouse_stop_drag();
-}
-
 void configurerequest(XEvent* event) {
-    event_on_configure(*event);
+   XConfigureRequestEvent* cre = &event->xconfigurerequest;
+   HSClient* client = get_client_from_window(cre->window);
+   if (client) {
+      XConfigureEvent ce;
+      ce.type = ConfigureNotify;
+      ce.display = g_display;
+      ce.event = cre->window;
+      ce.window = cre->window;
+      ce.x = client->last_size.x;
+      ce.y = client->last_size.y;
+      ce.width = client->last_size.width;
+      ce.height = client->last_size.height;
+      ce.override_redirect = False;
+      ce.border_width = cre->border_width;
+      ce.above = cre->above;
+      XSendEvent(g_display, cre->window, False, StructureNotifyMask, (XEvent*)&ce);
+   } else {
+      // if client not known.. then allow configure.
+      // its probably a nice conky or dzen2 bar :)
+      XWindowChanges wc;
+      wc.x = cre->x;
+      wc.y = cre->y;
+      wc.width = cre->width;
+      wc.height = cre->height;
+      wc.border_width = cre->border_width;
+      wc.sibling = cre->above;
+      wc.stack_mode = cre->detail;
+      XConfigureWindow(g_display, cre->window, cre->value_mask, &wc);
+   }
 }
 
 void configurenotify(XEvent* event){
@@ -209,10 +194,6 @@ void configurenotify(XEvent* event){
 
    if(ev->window == g_root)
       XMoveResizeWindow(g_display, m->barwin, m->rect.x, m->rect.y, m->rect.width, bh);
-}
-
-void clientmessage(XEvent* event) {
-    ewmh_handle_client_message(event);
 }
 
 void destroynotify(XEvent* event) {
@@ -243,10 +224,6 @@ void mappingnotify(XEvent* event) {
    }
 }
 
-void motionnotify(XEvent* event) {
-    handle_motion_event(event);
-}
-
 void mapnotify(XEvent* event) {
    HSClient* c;
    if ((c = get_client_from_window(event->xmap.window))) {
@@ -271,23 +248,17 @@ void maprequest(XEvent* event) {
 void propertynotify(XEvent* event) {
     XPropertyEvent *ev = &event->xproperty;
     HSClient* client;
-    if((ev->window == g_root) && (ev->atom == XA_WM_NAME))
-         updatestatus();
+    if((ev->window == g_root) && (ev->atom == XA_WM_NAME))  updatestatus();
 
     if (ev->state == PropertyNewValue &&
           (client = get_client_from_window(ev->window))) {
-       switch (ev->atom) {
-          case XA_WM_HINTS:
-             client_update_wm_hints(client);
-             break;
-          case XA_WM_NAME:
-             client_update_title(client);
-             break;
-          default:
-             break;
-        }
+       if (ev->atom == XA_WM_HINTS) {
+          client_update_wm_hints(client);
+       } else if (ev->atom == XA_WM_NAME) {
+          client_update_title(client);
+          draw_bars();
+       }
     }
-    draw_bars();
 }
 
 void unmapnotify(XEvent* event) {

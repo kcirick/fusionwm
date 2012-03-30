@@ -1,7 +1,6 @@
 //-- Appearance and Tags ----------------------------------------------------------------
 static const char font[]               = "-*-clean-medium-r-*-*-12-*-*-*-*-*-*-*";
 static const int window_gap            = 3;
-static const int snap_distance         = 10;
 static const int frame_border_width    = 1;
 static const int window_border_width   = 1;
 static const int bh                    = 20;  // bar height

@@ -18,8 +18,8 @@
 #define MOD(X, N) ((((X) % (signed)(N)) + (signed)(N)) % (signed)(N))
 #define ATOM(A) XInternAtom(g_display, (A), False)
 
-#define WINDOW_MIN_HEIGHT 32
-#define WINDOW_MIN_WIDTH 32
+#define WIN_MIN_HEIGHT 32
+#define WIN_MIN_WIDTH 32
 #define FRAME_MIN_FRACTION 0.1
 #define STRING_BUF_SIZE 256
 

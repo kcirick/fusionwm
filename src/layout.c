@@ -39,10 +39,8 @@ char* g_layout_names[] = {
 
 GArray*     g_tags; // Array of HSTag*
 GArray*     g_monitors; // Array of HSMonitor
-//extern char* g_layout_names[];
 
 void layout_init() {
-    g_cur_monitor = 0;
     g_tags = g_array_new(false, false, sizeof(HSTag*));
     g_monitors = g_array_new(false, false, sizeof(HSMonitor));
    
@@ -304,7 +302,7 @@ void frame_apply_layout(HSFrame* frame, XRectangle rect) {
       rect.y += frame_border_width;
       rect.height -= frame_border_width * 2;
       rect.width -= frame_border_width * 2;
-      if (rect.width <= WINDOW_MIN_WIDTH || rect.height <= WINDOW_MIN_HEIGHT) 
+      if (rect.width <= WIN_MIN_WIDTH || rect.height <= WIN_MIN_HEIGHT) 
          return;
 
       XSetWindowBorderWidth(g_display, frame->window, frame_border_width);
@@ -757,8 +755,7 @@ void focus_window(Window win, bool switch_tag, bool switch_monitor) {
     if (monitor != cur_mon && monitor != NULL) {
         if (!switch_monitor) {
             return;
-        } else {
-            // switch monitor
+        } else { // switch monitor
             monitor_focus_by_index(monitor_index_of(monitor));
             cur_mon = get_current_monitor();
             assert(cur_mon == monitor);

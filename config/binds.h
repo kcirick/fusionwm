@@ -47,7 +47,7 @@ static KeyBinding keys[] = {
 // -- Mouse bindings --------------------------------------------------------------------
 static MouseBinding buttons[] = {
    //event mask        button         function       
-   { MODKEY,           Button1,       mouse_function_move },
-   { MODKEY,           Button3,       mouse_function_resize },
+   { MODKEY,           Button1,       MOVE   },
+   { MODKEY,           Button3,       RESIZE },
 };
 

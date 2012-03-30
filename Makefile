@@ -1,4 +1,4 @@
-VERSION = 0.3
+VERSION = 0.4
 
 # paths
 X11INC = /usr/X11R6/include

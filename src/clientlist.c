@@ -215,13 +215,14 @@ void client_setup_border(HSClient* client, bool focused) {
 void client_resize(HSClient* client, XRectangle rect) {
     HSMonitor* m;
     if (client->fullscreen && (m = find_monitor_with_tag(client->tag))) {
-        client_resize_fullscreen(client, m);
-    } else if (client->floating && (m = find_monitor_with_tag(client->tag))) {
-         client_resize_floating(client, m);
-    } else {
+        XSetWindowBorderWidth(g_display, client->window, 0);
+        client->last_size = m->rect;
+        XMoveResizeWindow(g_display, client->window,
+              m->rect.x, m->rect.y, m->rect.width, m->rect.height);
+    } else if (!client->floating) {
        // ensure minimum size
-       if (rect.width < WINDOW_MIN_WIDTH)    rect.width = WINDOW_MIN_WIDTH;
-       if (rect.height < WINDOW_MIN_HEIGHT)  rect.height = WINDOW_MIN_HEIGHT;
+       if (rect.width < WIN_MIN_WIDTH)    rect.width = WIN_MIN_WIDTH;
+       if (rect.height < WIN_MIN_HEIGHT)  rect.height = WIN_MIN_HEIGHT;
        if (!client) return;
 
        Window win = client->window;
@@ -237,41 +238,9 @@ void client_resize(HSClient* client, XRectangle rect) {
     }
 }
 
-void client_resize_fullscreen(HSClient* client, HSMonitor* m) {
-    if (!client || !m) return;
-    
-    XSetWindowBorderWidth(g_display, client->window, 0);
-    client->last_size = m->rect;
-    XMoveResizeWindow(g_display, client->window,
-                      m->rect.x, m->rect.y, m->rect.width, m->rect.height);
-}
-
-void client_resize_floating(HSClient* client, HSMonitor* m) {
-    if (!client || !m) return;
-    if (client->fullscreen) {
-        client_resize_fullscreen(client, m);
-        return;
-    }
-
-    // ensure minimal size
-    if (client->float_size.width < WINDOW_MIN_WIDTH)
-        client->float_size.width = WINDOW_MIN_WIDTH;
-    if (client->float_size.height < WINDOW_MIN_HEIGHT)
-        client->float_size.height = WINDOW_MIN_HEIGHT;
-    client->last_size = client->float_size;
-    
-    XRectangle rect = client->last_size;
-    XSetWindowBorderWidth(g_display, client->window, window_border_width);
-    XMoveResizeWindow(g_display, client->window,
-        rect.x, rect.y, rect.width, rect.height);
-}
-
 void client_center(HSClient* client, HSMonitor *m) {
    if(!client || !m) return;
-   if(client->fullscreen) {
-      client_resize_fullscreen(client, m);
-      return;
-   }
+   if(client->fullscreen) return;
 
    XRectangle size = client->float_size;
    size.x = m->rect.x + m->rect.width/2 - client->float_size.width/2;
@@ -280,13 +249,6 @@ void client_center(HSClient* client, HSMonitor *m) {
    client->last_size = size;
    XSetWindowBorderWidth(g_display, client->window, window_border_width);
    XMoveResizeWindow(g_display, client->window, size.x, size.y, size.width, size.height);
-}
-
-XRectangle client_outer_floating_rect(HSClient* client) {
-    XRectangle rect = client->float_size;
-    rect.width  += window_border_width * 2;
-    rect.height += window_border_width * 2;
-    return rect;
 }
 
 void client_close(const Arg *arg) {

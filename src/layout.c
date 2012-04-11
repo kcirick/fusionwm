@@ -30,12 +30,7 @@ typedef struct {
 } DC; // draw context
 static DC dc;
 
-char* g_layout_names[] = {
-    "vertical",
-    "horizontal",
-    "max",
-    NULL,
-};
+char* g_layout_names[] = { "vertical", "horizontal", "max" };
 
 GArray*     g_tags; // Array of HSTag*
 GArray*     g_monitors; // Array of HSMonitor
@@ -55,8 +50,8 @@ void layout_init() {
       dc.colors[i][ColBG] = getcolor(colors[i][ColBG]);
     }
     dc.drawable = XCreatePixmap(g_display, g_root, 
-                                 DisplayWidth(g_display, DefaultScreen(g_display)), 
-                                 bh, DefaultDepth(g_display, DefaultScreen(g_display)));
+                                 DisplayWidth(g_display, g_screen), 
+                                 bh, DefaultDepth(g_display, g_screen));
     dc.gc = XCreateGC(g_display, g_root, 0, NULL);
     dc.h = bh;
 
@@ -108,9 +103,8 @@ HSFrame* frame_create_empty() {
          |EnterWindowMask|LeaveWindowMask|FocusChangeMask;
     frame->window = XCreateWindow(g_display, g_root,
                         42, 42, 42, 42, frame_border_width,
-                        DefaultDepth(g_display, DefaultScreen(g_display)),
-                        CopyFromParent,
-                        DefaultVisual(g_display, DefaultScreen(g_display)),
+                        DefaultDepth(g_display, g_screen), CopyFromParent,
+                        DefaultVisual(g_display, g_screen),
                         CWOverrideRedirect|CWBackPixmap|CWEventMask, &at);
     return frame;
 }
@@ -174,6 +168,8 @@ bool frame_remove_window(HSFrame* frame, Window window) {
                 selection -= (selection < i) ? 0 : 1;
                 selection = count ? CLAMP(selection, 0, count-1) : 0;
                 frame->content.clients.selection = selection;
+
+                if(count == 0)   frame_remove_function(frame);
                 return true;
             }
         }
@@ -248,10 +244,8 @@ void frame_apply_client_layout(HSFrame* frame, XRectangle rect, int layout) {
    size_t count_wo_floats = count - frame->content.clients.floatcount; 
    int selection = frame->content.clients.selection;
    XRectangle cur = rect;
-   int last_step_y;
-   int last_step_x;
-   int step_y;
-   int step_x;
+   int last_step_y, last_step_x;
+   int step_y, step_x;
 
    if(layout == LAYOUT_MAX){
       for (int i = 0; i < count; i++) {
@@ -430,8 +424,8 @@ void monitors_init() {
       XRectangle rect = {
          .x = 0, 
          .y = 0,
-         .width = DisplayWidth(g_display, DefaultScreen(g_display)),
-         .height = DisplayHeight(g_display, DefaultScreen(g_display)),
+         .width = DisplayWidth(g_display, g_screen),
+         .height = DisplayHeight(g_display, g_screen),
       };
       // add monitor with first tag
       HSTag *cur_tag = g_array_index(g_tags, HSTag*, 0);
@@ -643,54 +637,40 @@ void focus(const Arg *arg){
 }
 
 void shift(const Arg *arg) {
-    char direction = ((char *)arg->v)[0];
-    int index;
+   char direction = ((char *)arg->v)[0];
+   int index;
 
-    if ((index = frame_inner_neighbour_index(g_cur_frame, direction)) != -1) {
-        int selection = g_cur_frame->content.clients.selection;
-        Window* buf = g_cur_frame->content.clients.buf;
-        // if internal neighbour was found, then swap
-        Window tmp = buf[selection];
-        buf[selection] = buf[index];
-        buf[index] = tmp;
+   if ((index = frame_inner_neighbour_index(g_cur_frame, direction)) != -1) {
+      int selection = g_cur_frame->content.clients.selection;
+      Window* buf = g_cur_frame->content.clients.buf;
+      // if internal neighbour was found, then swap
+      Window tmp = buf[selection];
+      buf[selection] = buf[index];
+      buf[index] = tmp;
 
-        if (focus_follows_shift) 
-            g_cur_frame->content.clients.selection = index;
-        
-        frame_focus_recursive(g_cur_frame);
-        monitor_apply_layout(get_current_monitor());
-    } else {
-        HSFrame* neighbour = frame_neighbour(g_cur_frame, direction);
-        Window win = frame_focused_window(g_cur_frame);
-        if (win && neighbour != NULL) { // if neighbour was found
-            // move window to neighbour
-            frame_remove_window(g_cur_frame, win);
-            frame_insert_window(neighbour, win);
-            if (focus_follows_shift) {
-                // change selection in parrent
-                HSFrame* parent = neighbour->parent;
-                assert(parent);
-                parent->content.layout.selection = ! parent->content.layout.selection;
-                frame_focus_recursive(parent);
-                // focus right window in frame
-                HSFrame* frame = g_cur_frame;
-                assert(frame);
-                Window* buf = frame->content.clients.buf;
-                size_t count = frame->content.clients.count;
-                for (int i=0; i<count; i++) {
-                    if (buf[i] == win) {
-                        frame->content.clients.selection = i;
-                        window_focus(buf[i]);
-                        break;
-                    }
-                }
-            } else {
-                frame_focus_recursive(g_cur_frame);
-            }
-            // layout was changed, so update it
-            monitor_apply_layout(get_current_monitor());
-        }
-    }
+      if (focus_follows_shift) 
+         g_cur_frame->content.clients.selection = index;
+
+      frame_focus_recursive(g_cur_frame);
+      monitor_apply_layout(get_current_monitor());
+   } else {
+      HSFrame* neighbour = frame_neighbour(g_cur_frame, direction);
+      Window win = frame_focused_window(g_cur_frame);
+      if (win && neighbour != NULL) { // if neighbour was found
+         // change selection in parrent
+         HSFrame* parent = neighbour->parent;
+         assert(parent);
+         parent->content.layout.selection = ! parent->content.layout.selection;
+         // move window to neighbour
+         frame_remove_window(g_cur_frame, win);
+         frame_insert_window(parent, win);
+         if(focus_follows_shift)    frame_focus_recursive(parent);
+         else                       frame_focus_recursive(g_cur_frame);
+
+         // layout was changed, so update it
+         monitor_apply_layout(get_current_monitor());
+      }
+   }
 }
 
 Window frame_focused_window(HSFrame* frame) {
@@ -825,8 +805,12 @@ void frame_show_clients(HSFrame* frame) {
 }
 
 void frame_remove(const Arg *arg){
-    if (!g_cur_frame->parent) return;
-    
+    frame_remove_function(g_cur_frame);
+}
+
+void frame_remove_function(HSFrame* frame){
+   if(!frame->parent)   return;
+
     assert(g_cur_frame->type == TYPE_CLIENTS);
     HSFrame* parent = g_cur_frame->parent;
     HSFrame* first = g_cur_frame;
@@ -1032,9 +1016,8 @@ void create_bar(HSMonitor *mon) {
    if(mon->primary==1) width -= systray_width;
    mon->barwin = XCreateWindow(g_display, g_root,
          mon->rect.x, mon->rect.y, width, bh, 0,
-         DefaultDepth(g_display, DefaultScreen(g_display)),
-         CopyFromParent,
-         DefaultVisual(g_display, DefaultScreen(g_display)),
+         DefaultDepth(g_display, g_screen), CopyFromParent,
+         DefaultVisual(g_display, g_screen),
          CWOverrideRedirect|CWBackPixmap|CWEventMask, &wa);
 
    XMapWindow(g_display, mon->barwin);
@@ -1087,7 +1070,7 @@ void drawtext(const char *text, unsigned long col[ColLast]){
 
    olen = strlen(text);
    h = dc.font.ascent + dc.font.descent;
-   y = dc.y + 2 + (dc.h / 2) - (h/2) + dc.font.ascent;
+   y = dc.y + (dc.h / 2) - (h/2) + dc.font.ascent;
    x = dc.x + (h/2);
 
    // shorten text if necessary

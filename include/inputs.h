@@ -5,10 +5,6 @@
 #ifndef _INPUTS_H_
 #define _INPUTS_H_
 
-// foreward declarations
-struct HSClient;
-struct HSTag;
-
 enum { RESIZE, MOVE };
 
 typedef struct MouseBinding {

@@ -132,19 +132,18 @@ void buttonpress(XEvent* event) {
    } else {
       if(be->window == get_current_monitor()->barwin){
          i = x = 0;
-         do
-            x += get_textw(tags[i]);
-         while(be->x >= x && ++i < NUMTAGS);
+         do    x += get_textw(tags[i]);
+         while (be->x >= x && ++i < NUMTAGS);
          if(i < NUMTAGS){
             click = ClkTagBar;
             arg.i = i;
          } else
             click = ClkWinTitle;
       }
-      if(click == ClkTagBar && be->button == Button1 && CLEANMASK(be->state) == 0)
+      if(click==ClkTagBar && be->button==Button1 && CLEANMASK(be->state)==0)
          use_tag(&arg);
 
-      if (be->button == Button1 || be->button == Button2 || be->button == Button3) {
+      if (be->button==Button1 || be->button==Button2 || be->button==Button3) {
          // only change focus on real clicks... not when scrolling
          if (raise_on_click)
             XRaiseWindow(g_display, be->window);
@@ -252,13 +251,10 @@ void propertynotify(XEvent* event) {
 
     if (ev->state == PropertyNewValue &&
           (client = get_client_from_window(ev->window))) {
-       if (ev->atom == XA_WM_HINTS) {
-          client_update_wm_hints(client);
-       } else if (ev->atom == XA_WM_NAME) {
-          client_update_title(client);
-          draw_bars();
-       }
+       if (ev->atom == XA_WM_HINTS)       client_update_wm_hints(client);
+       else if (ev->atom == XA_WM_NAME)   client_update_title(client);
     }
+    draw_bars();
 }
 
 void unmapnotify(XEvent* event) {
@@ -269,10 +265,7 @@ void setup(){
    // remove zombies on SIGCHLD
    sigchld(0);
 
-   // set some globals
    g_screen = DefaultScreen(g_display);
-   g_screen_width = DisplayWidth(g_display, g_screen);
-   g_screen_height = DisplayHeight(g_display, g_screen);
    g_root = RootWindow(g_display, g_screen);
    XSelectInput(g_display, g_root, ROOT_EVENT_MASK);
 

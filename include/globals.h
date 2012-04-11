@@ -15,7 +15,6 @@
 #include <X11/Xatom.h>
 
 #define LENGTH(X) (sizeof(X)/sizeof(*X))
-#define MOD(X, N) ((((X) % (signed)(N)) + (signed)(N)) % (signed)(N))
 #define ATOM(A) XInternAtom(g_display, (A), False)
 
 #define WIN_MIN_HEIGHT 32
@@ -34,9 +33,11 @@
 Display*    g_display;
 int         g_screen;
 Window      g_root;
-int         g_screen_width;
-int         g_screen_height;
 bool        g_aboutToQuit;
+
+struct HSClient;
+struct HSFrame; 
+struct HSTag;
 
 typedef union {
    int i;

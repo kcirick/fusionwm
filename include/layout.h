@@ -6,7 +6,6 @@
 #define _LAYOUT_H_
 
 #include <stdlib.h>
-#include <X11/cursorfont.h>
 #include "globals.h"
 
 enum { ALIGN_VERTICAL, ALIGN_HORIZONTAL };
@@ -14,10 +13,6 @@ enum { LAYOUT_VERTICAL, LAYOUT_HORIZONTAL, LAYOUT_MAX, LAYOUT_COUNT };
 enum { TYPE_CLIENTS, TYPE_FRAMES };
 
 enum { ColFrameBorder, ColWindowBorder, ColFG, ColBG, ColLast }; /* color */
-
-struct HSClient;
-struct HSFrame;
-struct HSTag;
 
 typedef int (*ClientAction)(struct HSClient*, void* data);
 
@@ -102,6 +97,7 @@ Window frame_focused_window(HSFrame* frame);
 void focus_window(Window win, bool switch_tag, bool switch_monitor);
 void shift(const Arg *arg);
 void frame_remove(const Arg *arg);
+void frame_remove_function(HSFrame *frame);
 void frame_set_visible(HSFrame* frame, bool visible);
 
 // for tags

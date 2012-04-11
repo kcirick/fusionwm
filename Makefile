@@ -1,3 +1,4 @@
+# fusionwm version
 VERSION = 0.4
 
 # paths
@@ -32,6 +33,8 @@ $(TARGET): $(OBJ)
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(HEADER)
 	@echo " CC " $<
 	@$(CC) -c $(CFLAGS) -o $@ $<
+
+${OBJ}: config/config.h config/binds.h
 
 clean:
 	@echo " RM " $(TARGET)

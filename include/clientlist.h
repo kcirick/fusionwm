@@ -17,25 +17,17 @@
 #define _NET_WM_STATE_TOGGLE        2    /* toggle property  */
 
 enum {
-    NetSupported = 0,
-    NetWmName,
-    NetWmWindowType,
-    NetWmState,
+    NetSupported, NetWmName, NetWmWindowType, NetWmState,
     /* window states */
     NetWmStateFullscreen,
     /* window types */
     ENUM_WITH_ALIAS(NetWmWindowTypeDesktop, NetWmWindowTypeFIRST),
-    NetWmWindowTypeDock,
-    NetWmWindowTypeSplash,
-    NetWmWindowTypeDialog,
-    NetWmWindowTypeNotification,
+    NetWmWindowTypeDock, NetWmWindowTypeSplash,
+    NetWmWindowTypeDialog, NetWmWindowTypeNotification,
     ENUM_WITH_ALIAS(NetWmWindowTypeNormal, NetWmWindowTypeLAST),
     /* the count of hints */
     NetCOUNT
 };
-
-struct HSTag;
-struct HSClient;
 
 Atom g_netatom[NetCOUNT];
 extern char* g_netatom_names[];

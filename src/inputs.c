@@ -20,8 +20,6 @@ void inputs_init() {
    grab_buttons();
 }
 
-void inputs_destroy() { }
-
 void update_numlockmask() {
     unsigned int i, j;
     XModifierKeymap *modmap;

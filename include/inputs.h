@@ -22,7 +22,6 @@ typedef struct KeyBinding {
 
 //---
 void inputs_init();
-void inputs_destroy();
 
 MouseBinding* mouse_binding_find(unsigned int modifiers, unsigned int button);
 void grab_keys();

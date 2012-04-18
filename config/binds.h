@@ -8,7 +8,6 @@ static KeyBinding keys[] = {
    // modifier                      key         function       argument
    { MODKEY|ShiftMask,              XK_Return,  spawn,         {.v = "urxvt"} },
    { MODKEY|ShiftMask,              XK_w,       spawn,         {.v = "chromium"} },
-   { MODKEY|ShiftMask,              XK_g,       spawn,         {.v = "gvim"} },
    { MODKEY|ShiftMask,              XK_t,       spawn,         {.v = "thunar"} },
    { MODKEY|ShiftMask,              XK_r,       spawn,         {.v = "gmrun"} },
    { MODKEY,                        XK_q,       quit,          {0} },

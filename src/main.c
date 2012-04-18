@@ -217,10 +217,7 @@ void mappingnotify(XEvent* event) {
    // regrab when keyboard map changes
    XMappingEvent *ev = &event->xmapping;
    XRefreshKeyboardMapping(ev);
-   if(ev->request == MappingKeyboard) {
-      grab_keys();
-      grab_buttons();
-   }
+   if(ev->request == MappingKeyboard) grab_keys();
 }
 
 void mapnotify(XEvent* event) {
@@ -276,7 +273,6 @@ void setup(){
 }
 
 void cleanup() {
-   inputs_destroy();
    clientlist_destroy();
    layout_destroy();
 }

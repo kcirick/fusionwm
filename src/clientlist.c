@@ -355,8 +355,6 @@ void rules_apply(HSClient* client, int *manage) {
    if(status == Success && buf) {
       wintype= *(Atom *)buf;
       XFree(buf);
-   } else {
-      return;
    }
    
    if(wintype == g_netatom[NetWmWindowTypeDialog] || 

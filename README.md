@@ -16,6 +16,7 @@ Difference from DWM:
 --------------------
   - Manual tiling
   - Better code organization
+  - Exclusive number of tags: the defined number of tags don't double if you attach an external monitor
 
 A Screenshot:
 -------------

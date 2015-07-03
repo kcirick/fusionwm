@@ -1,10 +1,14 @@
-//-- Appearance and Tags ----------------------------------------------------------------
-static const char font[]               = "-*-ohsnap-medium-r-*-*-11-*-*-*-*-*-*-*";
-static const int window_gap            = 5;
+//-- Appearance and Tags --------------------------------------------------
+static const char font[]               = "-*-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*";
+static const int window_gap            = 3;
 static const int frame_border_width    = 1;
 static const int window_border_width   = 2;
-static const int bh                    = 20;  // bar height
-static const int systray_width         = 100;
+static const int bar_height            = 20; 
+
+// Systray
+static const bool systray_visible               = true;
+static const unsigned int systray_initial_gap   = 8;
+static const unsigned int systray_spacing       = 0;
 
 #define NUMCOLORS 4
 static const char colors[NUMCOLORS][ColLast][8] = {
@@ -15,11 +19,11 @@ static const char colors[NUMCOLORS][ColLast][8] = {
    { "#000000",      "#FF0000",     "#FF0000",  "#111111"}, // 3 - urgent tags
 };
 
-#define NUMTAGS 7
-static const char tags[NUMTAGS][10] = { "Eins", "Zwei", "Drei", 
-                                         "Vier", "Fünf", "Sechs", "Sieben" };
+#define NUMTAGS 5
+static const char tags[NUMTAGS][10] = { "One", "Two", "Three", 
+                                         "Four", "Five" };
 
-//-- Other configurations ---------------------------------------------------------------
+//-- Other configurations -------------------------------------------------
 static const int focus_follows_mouse = 1;
 static const int focus_follows_shift = 1;
 static const int focus_new_clients = 1;
@@ -27,11 +31,13 @@ static const int raise_on_click = 1;
 static const int default_frame_layout  = 0;
 static const float resize_step = 0.025;
 
-//-- Rules ------------------------------------------------------------------------------
+
+//-- Rules ----------------------------------------------------------------
 static const Rule custom_rules[] = {
    //Class                    Tag,  Float
    { "Gmrun",                 -1,   1 },
    { "Canvas",                -1,   1 },
-   { "com-sun-javaws-Main",   -1,   1 },
+   { "Wpa_gui",               -1,   1 },
+   { "Gsimplecal",            -1,   1 },
 };
 

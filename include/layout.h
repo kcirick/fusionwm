@@ -14,21 +14,21 @@ enum { TYPE_CLIENTS, TYPE_FRAMES };
 
 enum { ColFrameBorder, ColWindowBorder, ColFG, ColBG, ColLast }; /* color */
 
-typedef int (*ClientAction)(struct HSClient*, void* data);
+typedef int (*ClientAction)(struct Client*, void* data);
 
 #define FRACTION_UNIT 10000
 
-typedef struct HSLayout {
+typedef struct Layout {
     int align;         // ALIGN_VERTICAL or ALIGN_HORIZONTAL
-    struct HSFrame* a; // first child
-    struct HSFrame* b; // second child
+    struct Frame* a; // first child
+    struct Frame* b; // second child
     int selection;
     int fraction; // size of first child relative to whole size
-} HSLayout;
+} Layout;
 
-typedef struct HSFrame {
+typedef struct Frame {
     union {
-        HSLayout layout;
+        Layout layout;
         struct {
             Window* buf;
             size_t  count;
@@ -38,13 +38,13 @@ typedef struct HSFrame {
         } clients;
     } content;
     int type;
-    struct HSFrame* parent;
+    struct Frame* parent;
     Window window;
     bool   window_visible;
-} HSFrame;
+} Frame;
 
-typedef struct HSMonitor {
-    struct HSTag*      tag;    // currently viewed tag
+typedef struct Monitor {
+    struct Tag*      tag;    // currently viewed tag
     struct {
         int x;
         int y;
@@ -52,85 +52,110 @@ typedef struct HSMonitor {
     XRectangle  rect;   // area for this monitor
     Window barwin;
     int primary;
-} HSMonitor;
+} Monitor;
 
-typedef struct HSTag {
+typedef struct Tag {
     const char* name;   // name of this tag
-    HSFrame*    frame;  // the master frame
+    Frame*    frame;  // the master frame
     bool       urgent;
-} HSTag;
+} Tag;
 
+typedef struct {
+   int x, y, w, h;
+   unsigned long colors[10][ColLast];
+   Drawable drawable;
+   GC gc;
+   struct {
+      int ascent;
+      int descent;
+      int height;
+      XFontSet set;
+      XFontStruct *xfont;
+   } font;
+} DC; // draw context
+
+//--- Variables
 int         g_cur_monitor;
-HSFrame*    g_cur_frame; // currently selected frame
+Frame*      g_cur_frame; // currently selected frame
+GArray*     g_tags; // Array of Tag*
+GArray*     g_monitors; // Array of Monitor
+DC          dc;
+
+char stext[256];
+
 
 //--- Functions
 void layout_init();
 void layout_destroy();
 
 // for frames
-HSFrame* frame_create_empty();
-void frame_insert_window(HSFrame* frame, Window window);
-HSFrame* frame_descend(HSFrame* frame);
-bool frame_remove_window(HSFrame* frame, Window window);
-void frame_destroy(HSFrame* frame, Window** buf, size_t* count);
-void frame_split(HSFrame* frame, int align, int fraction);
+Frame* frame_create_empty();
+void frame_insert_window(Frame* frame, Window window);
+Frame* frame_descend(Frame* frame);
+bool frame_remove_window(Frame* frame, Window window);
+void frame_destroy(Frame* frame, Window** buf, size_t* count);
+void frame_split(Frame* frame, int align, int fraction);
 void split_v(const Arg *arg);
 void split_h(const Arg *arg);
 void resize_frame(const Arg *arg);
 
-void frame_apply_layout(HSFrame* frame, XRectangle rect);
+void frame_apply_layout(Frame* frame, XRectangle rect);
 
 void cycle(const Arg * arg);
 
-HSFrame* frame_neighbour(HSFrame* frame, char direction);
-int frame_inner_neighbour_index(HSFrame* frame, char direction);
+Frame* frame_neighbour(Frame* frame, char direction);
+int frame_inner_neighbour_index(Frame* frame, char direction);
 void focus(const Arg* arg);
 
-int frame_focus_recursive(HSFrame* frame);
-void frame_do_recursive(HSFrame* frame, void (*action)(HSFrame*), int order);
-void frame_show_clients(HSFrame* frame);
-int frame_foreach_client(HSFrame* frame, ClientAction action, void* data);
+int frame_focus_recursive(Frame* frame);
+void frame_do_recursive(Frame* frame, void (*action)(Frame*), int order);
+void frame_show_clients(Frame* frame);
+int frame_foreach_client(Frame* frame, ClientAction action, void* data);
+void frame_hide(Frame* frame); 
 
 void set_layout(const Arg *arg);
 
-Window frame_focused_window(HSFrame* frame);
+Window frame_focused_window(Frame* frame);
 void focus_window(Window win, bool switch_tag, bool switch_monitor);
 void shift(const Arg *arg);
 void frame_remove(const Arg *arg);
-void frame_remove_function(HSFrame *frame);
-void frame_set_visible(HSFrame* frame, bool visible);
+void frame_remove_function(Frame *frame);
+void frame_set_visible(Frame* frame, bool visible);
 
 // for tags
 void add_tag(const char* name);
-HSTag* find_tag(const char* name);
+Tag* find_tag(const char* name);
 void move_tag(const Arg *arg);
-void tag_move_window(HSTag* target);
+void tag_move_window(Tag* target);
 
 // for monitors
-HSMonitor* find_monitor_with_tag(HSTag* tag);
-void add_monitor(XRectangle rect, HSTag* tag, int primary);
+Monitor* find_monitor_with_tag(Tag* tag);
+void add_monitor(XRectangle rect, Tag* tag, int primary);
 void monitor_focus_by_index(int new_selection);
-int monitor_index_of(HSMonitor* monitor);
+int monitor_index_of(Monitor* monitor);
 void focus_monitor(const Arg *arg);
-HSMonitor* get_current_monitor();
-void monitor_set_tag(HSMonitor* monitor, HSTag* tag);
+Monitor* get_current_monitor();
+Monitor* get_primary_monitor();
+void monitor_set_tag(Monitor* monitor, Tag* tag);
 void use_tag(const Arg *arg);
-void monitor_apply_layout(HSMonitor* monitor);
+void monitor_apply_layout(Monitor* monitor);
 void all_monitors_apply_layout();
-void monitors_init();
+void update_monitors();
 
 // for bars and miscellaneous
-void create_bar(HSMonitor *mon);
-void draw_bar(HSMonitor *mon);
+void update_bar(Monitor *mon);
+void draw_bar(Monitor *mon);
 void draw_bars();
 
-void updatestatus(void);
+void update_status(void);
 void drawtext(const char *text, unsigned long col[ColLast]);
 void initfont(const char *fontstr);
 int textnw(const char *text, unsigned int len);
 int get_textw(const char *text);
  
-HSMonitor* wintomon(Window w);
+Monitor* wintomon(Window w);
+
+void resizebarwin(Monitor *m);
 
 #endif
 

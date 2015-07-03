@@ -6,38 +6,19 @@
 #include "globals.h"
 #include "layout.h"
 #include "config.h"
+#include "systray.h"
+#include "inputs.h"
 
 #include <assert.h>
 #ifdef XINERAMA
    #include <X11/extensions/Xinerama.h>
-#endif //XINERAMA //
-
-// status
-static char stext[256];
-
-typedef struct {
-   int x, y, w, h;
-   unsigned long colors[NUMCOLORS][ColLast];
-   Drawable drawable;
-   GC gc;
-   struct {
-      int ascent;
-      int descent;
-      int height;
-      XFontSet set;
-      XFontStruct *xfont;
-   } font;
-} DC; // draw context
-static DC dc;
+#endif //XINERAMA
 
 char* g_layout_names[] = { "vertical", "horizontal", "max" };
 
-GArray*     g_tags; // Array of HSTag*
-GArray*     g_monitors; // Array of HSMonitor
-
 void layout_init() {
-    g_tags = g_array_new(false, false, sizeof(HSTag*));
-    g_monitors = g_array_new(false, false, sizeof(HSMonitor));
+    g_tags = g_array_new(false, false, sizeof(Tag*));
+    g_monitors = g_array_new(false, false, sizeof(Monitor));
    
     // init font
     initfont(font);
@@ -49,47 +30,47 @@ void layout_init() {
       dc.colors[i][ColFG] = getcolor(colors[i][ColFG]);
       dc.colors[i][ColBG] = getcolor(colors[i][ColBG]);
     }
-    dc.drawable = XCreatePixmap(g_display, g_root, 
-                                 DisplayWidth(g_display, g_screen), 
-                                 bh, DefaultDepth(g_display, g_screen));
-    dc.gc = XCreateGC(g_display, g_root, 0, NULL);
-    dc.h = bh;
+    dc.drawable = XCreatePixmap(gDisplay, gRoot, 
+                                 DisplayWidth(gDisplay, gScreen), 
+                                 bar_height, DefaultDepth(gDisplay, gScreen));
+    dc.gc = XCreateGC(gDisplay, gRoot, 0, NULL);
+    dc.h = bar_height;
 
-    if(!dc.font.set) XSetFont(g_display, dc.gc, dc.font.xfont->fid);
+    if(!dc.font.set) XSetFont(gDisplay, dc.gc, dc.font.xfont->fid);
 
     for(int i=0; i<NUMTAGS; i++)
        add_tag(tags[i]);
 
-    monitors_init();
+    update_monitors();
 }
 
 void layout_destroy() {
-    int i;
-    for (i = 0; i < g_tags->len; i++) {
-        HSTag* tag = g_array_index(g_tags, HSTag*, i);
+    for (int i = 0; i < g_tags->len; i++) {
+        Tag* tag = g_array_index(g_tags, Tag*, i);
         frame_do_recursive(tag->frame, frame_show_clients, 2);
         g_free(tag);
     }
     g_array_free(g_tags, true);
     g_array_free(g_monitors, true);
 
-   if(dc.font.set)   XFreeFontSet(g_display, dc.font.set);
-   else              XFreeFont(g_display, dc.font.xfont);
-   XFreePixmap(g_display, dc.drawable);
-   XFreeGC(g_display, dc.gc);
+   if(dc.font.set)   XFreeFontSet(gDisplay, dc.font.set);
+   else              XFreeFont(gDisplay, dc.font.xfont);
+   XFreePixmap(gDisplay, dc.drawable);
+   XFreeGC(gDisplay, dc.gc);
 
    // Destroy monitors
    for(int i=0; i < g_monitors->len; i++){
-      HSMonitor* m = &g_array_index(g_monitors, HSMonitor, i);
-      XUnmapWindow(g_display, m->barwin);
-      XDestroyWindow(g_display, m->barwin);
+      Monitor* m = &g_array_index(g_monitors, Monitor, i);
+      XUnmapWindow(gDisplay, m->barwin);
+      XDestroyWindow(gDisplay, m->barwin);
       free(m);
    }
-   XSync(g_display, False);
+
+   XSync(gDisplay, False);
 }
 
-HSFrame* frame_create_empty() {
-    HSFrame* frame = g_new0(HSFrame, 1);
+Frame* frame_create_empty() {
+    Frame* frame = g_new0(Frame, 1);
     frame->type = TYPE_CLIENTS;
     frame->window_visible = false;
     frame->content.clients.layout = default_frame_layout;
@@ -101,22 +82,25 @@ HSFrame* frame_create_empty() {
     at.event_mask        = SubstructureRedirectMask|SubstructureNotifyMask
          |ExposureMask|VisibilityChangeMask
          |EnterWindowMask|LeaveWindowMask|FocusChangeMask;
-    frame->window = XCreateWindow(g_display, g_root,
+    frame->window = XCreateWindow(gDisplay, gRoot,
                         42, 42, 42, 42, frame_border_width,
-                        DefaultDepth(g_display, g_screen), CopyFromParent,
-                        DefaultVisual(g_display, g_screen),
+                        DefaultDepth(gDisplay, gScreen), CopyFromParent,
+                        DefaultVisual(gDisplay, gScreen),
                         CWOverrideRedirect|CWBackPixmap|CWEventMask, &at);
+
+    XDefineCursor(gDisplay, frame->window, cursor[CurNormal]);
+
     return frame;
 }
 
-void frame_insert_window(HSFrame* frame, Window window) {
+void frame_insert_window(Frame* frame, Window window) {
     if (frame->type == TYPE_CLIENTS) {
         // insert it here
         Window* buf = frame->content.clients.buf;
         size_t count = frame->content.clients.count;
         count++;
 
-        HSClient *c = get_client_from_window(window);
+        Client *c = get_client_from_window(window);
         size_t floatcount = frame->content.clients.floatcount;
         if(c->floating)
            floatcount++;
@@ -139,15 +123,15 @@ void frame_insert_window(HSFrame* frame, Window window) {
             window_focus(window);
         }
     } else { /* frame->type == TYPE_FRAMES */
-        HSLayout* layout = &frame->content.layout;
+        Layout* layout = &frame->content.layout;
         frame_insert_window((layout->selection == 0)? layout->a : layout->b, window);
     }
 }
 
-bool frame_remove_window(HSFrame* frame, Window window) {
+bool frame_remove_window(Frame* frame, Window window) {
     if (frame->type == TYPE_CLIENTS) {
         Window* buf = frame->content.clients.buf;
-        HSClient *c = get_client_from_window(window);
+        Client *c = get_client_from_window(window);
         size_t count = frame->content.clients.count;
         size_t floatcount = frame->content.clients.floatcount;
         int i;
@@ -181,7 +165,7 @@ bool frame_remove_window(HSFrame* frame, Window window) {
     }
 }
 
-void frame_destroy(HSFrame* frame, Window** buf, size_t* count) {
+void frame_destroy(Frame* frame, Window** buf, size_t* count) {
     if (frame->type == TYPE_CLIENTS) {
         *buf = frame->content.clients.buf;
         *count = frame->content.clients.count;
@@ -200,16 +184,16 @@ void frame_destroy(HSFrame* frame, Window** buf, size_t* count) {
         *count = c1 + c2;
     }
     // free other things
-    XDestroyWindow(g_display, frame->window);
+    XDestroyWindow(gDisplay, frame->window);
     g_free(frame);
 }
 
-void monitor_apply_layout(HSMonitor* monitor) {
+void monitor_apply_layout(Monitor* monitor) {
     if (monitor) {
         XRectangle rect = monitor->rect;
         // apply pad
-        rect.y += bh;
-        rect.height -= bh;
+        rect.y += bar_height;
+        rect.height -= bar_height;
         // apply window gap
         rect.x += window_gap;
         rect.y += window_gap;
@@ -238,7 +222,7 @@ void set_layout(const Arg *arg) {
    return;
 }
 
-void frame_apply_client_layout(HSFrame* frame, XRectangle rect, int layout) {
+void frame_apply_client_layout(Frame* frame, XRectangle rect, int layout) {
    Window* buf = frame->content.clients.buf;
    size_t count = frame->content.clients.count;
    size_t count_wo_floats = count - frame->content.clients.floatcount; 
@@ -249,7 +233,7 @@ void frame_apply_client_layout(HSFrame* frame, XRectangle rect, int layout) {
 
    if(layout == LAYOUT_MAX){
       for (int i = 0; i < count; i++) {
-         HSClient* client = get_client_from_window(buf[i]);
+         Client* client = get_client_from_window(buf[i]);
          client_setup_border(client, (g_cur_frame == frame) && (i == selection));
          client_resize(client, rect);
       }
@@ -272,7 +256,7 @@ void frame_apply_client_layout(HSFrame* frame, XRectangle rect, int layout) {
          step_x = cur.width;
       }
       for (int i = 0; i < count; i++) {
-         HSClient* client = get_client_from_window(buf[i]);
+         Client* client = get_client_from_window(buf[i]);
          if(client->floating) continue;
          // add the space, if count doesnot divide frameheight without remainder
          cur.height += (i == count-1) ? last_step_y : 0;
@@ -285,7 +269,7 @@ void frame_apply_client_layout(HSFrame* frame, XRectangle rect, int layout) {
    }
 }
 
-void frame_apply_layout(HSFrame* frame, XRectangle rect) {
+void frame_apply_layout(Frame* frame, XRectangle rect) {
    if (frame->type == TYPE_CLIENTS) {
       size_t count = frame->content.clients.count;
       // frame only -> apply window_gap
@@ -299,25 +283,25 @@ void frame_apply_layout(HSFrame* frame, XRectangle rect) {
       if (rect.width <= WIN_MIN_WIDTH || rect.height <= WIN_MIN_HEIGHT) 
          return;
 
-      XSetWindowBorderWidth(g_display, frame->window, frame_border_width);
+      XSetWindowBorderWidth(gDisplay, frame->window, frame_border_width);
       // set indicator frame
       unsigned long border_color = dc.colors[0][ColFrameBorder];
       if (g_cur_frame == frame) 
          border_color = dc.colors[1][ColFrameBorder];
 
-      XSetWindowBorder(g_display, frame->window, border_color);
-      XMoveResizeWindow(g_display, frame->window,
+      XSetWindowBorder(gDisplay, frame->window, border_color);
+      XMoveResizeWindow(gDisplay, frame->window,
             rect.x-frame_border_width, rect.y-frame_border_width,
             rect.width, rect.height);
-      XSetWindowBackgroundPixmap(g_display, frame->window, ParentRelative);
-      XClearWindow(g_display, frame->window);
-      XLowerWindow(g_display, frame->window);
+      XSetWindowBackgroundPixmap(gDisplay, frame->window, ParentRelative);
+      XClearWindow(gDisplay, frame->window);
+      XLowerWindow(gDisplay, frame->window);
       frame_set_visible(frame, (count != 0) || (g_cur_frame == frame));
       if (count == 0) return;
 
       frame_apply_client_layout(frame, rect, frame->content.clients.layout);
    } else { /* frame->type == TYPE_FRAMES */
-      HSLayout* layout = &frame->content.layout;
+      Layout* layout = &frame->content.layout;
       XRectangle first = rect;
       XRectangle second = rect;
       if (layout->align == ALIGN_VERTICAL) {
@@ -335,41 +319,41 @@ void frame_apply_layout(HSFrame* frame, XRectangle rect) {
    }
 }
 
-void add_monitor(XRectangle rect, HSTag* tag, int primary) {
+void add_monitor(XRectangle rect, Tag* tag, int primary) {
     assert(tag != NULL);
-    HSMonitor m;
+    Monitor m;
     memset(&m, 0, sizeof(m));
     m.rect = rect;
     m.tag = tag;
     m.mouse.x = 0;
     m.mouse.y = 0;
     m.primary = primary;
-    create_bar(&m);
+    update_bar(&m);
     g_array_append_val(g_monitors, m);
 }
 
-HSMonitor* find_monitor_with_tag(HSTag* tag) {
+Monitor* find_monitor_with_tag(Tag* tag) {
     for (int i=0; i<g_monitors->len; i++) {
-        HSMonitor* m = &g_array_index(g_monitors, HSMonitor, i);
+        Monitor* m = &g_array_index(g_monitors, Monitor, i);
         if (m->tag == tag) 
             return m;
     }
     return NULL;
 }
 
-HSTag* find_tag(const char* name) {
+Tag* find_tag(const char* name) {
     for (int i=0; i<g_tags->len; i++) {
-        if (!strcmp(g_array_index(g_tags, HSTag*, i)->name, name)) 
-            return g_array_index(g_tags, HSTag*, i);
+        if (!strcmp(g_array_index(g_tags, Tag*, i)->name, name)) 
+            return g_array_index(g_tags, Tag*, i);
     }
     return NULL;
 }
 
 void add_tag(const char* name) {
-    HSTag* find_result = find_tag(name);
+    Tag* find_result = find_tag(name);
     if (find_result)  return;
     
-    HSTag* tag = g_new(HSTag, 1);
+    Tag* tag = g_new(Tag, 1);
     tag->frame = frame_create_empty();
     tag->name = name;
     tag->urgent = false;
@@ -387,11 +371,11 @@ Bool is_unique_geometry(XineramaScreenInfo *unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-void monitors_init() {
+void update_monitors() {
 #ifdef XINERAMA
-   if(XineramaIsActive(g_display)){
+   if(XineramaIsActive(gDisplay)){
       int i, j, nn;
-      XineramaScreenInfo *info = XineramaQueryScreens(g_display, &nn);
+      XineramaScreenInfo *info = XineramaQueryScreens(gDisplay, &nn);
       XineramaScreenInfo *unique = NULL;
 
       if(!(unique = (XineramaScreenInfo *)malloc(sizeof(XineramaScreenInfo)*nn)))
@@ -402,21 +386,33 @@ void monitors_init() {
       XFree(info);
       nn = j;
 
-      for(i=0; i<nn; i++){
-         XRectangle rect = {
-            .x = unique[i].x_org,
-            .y = unique[i].y_org,
-            .width =  unique[i].width,
-            .height = unique[i].height,
-         }; 
-         HSTag *cur_tag = g_array_index(g_tags, HSTag*, i);
-         if(i==0){ // first one is primary monitor
-            add_monitor(rect, cur_tag, 1);
-            g_cur_monitor = 0;
-            g_cur_frame = cur_tag->frame;
-         } else {
-            add_monitor(rect, cur_tag, 0);
+      if(g_monitors->len <= nn ){ 
+         for(i=0; i<nn; i++){ 
+            XRectangle rect = {
+               .x = unique[i].x_org,
+               .y = unique[i].y_org,
+               .width =  unique[i].width,
+               .height = unique[i].height,
+            }; 
+            Tag *cur_tag = g_array_index(g_tags, Tag*, i);
+            if((i==0) && (g_monitors->len==0)){ // first one is primary monitor
+               add_monitor(rect, cur_tag, 1);
+               g_cur_monitor = 0;
+               g_cur_frame = cur_tag->frame;
+            } else if(i>=g_monitors->len) { // new monitors available
+               add_monitor(rect, cur_tag, 0);
+            } 
+            Monitor* new_mon = &g_array_index(g_monitors, Monitor, i);
+            if(rect.x != new_mon->rect.x || rect.y != new_mon->rect.y ||
+                  rect.width != new_mon->rect.width || rect.height != new_mon->rect.height){
+               new_mon->rect = rect;
+               //resizebarwin(new_mon);
+               monitor_apply_layout(new_mon);
+            }
          }
+      } else {// less monitors available
+         for(i=nn; i < g_monitors->len; i++)
+            g_array_remove_index(g_monitors, i);
       }
    } else 
 #endif //XINERAMA //
@@ -424,18 +420,18 @@ void monitors_init() {
       XRectangle rect = {
          .x = 0, 
          .y = 0,
-         .width = DisplayWidth(g_display, g_screen),
-         .height = DisplayHeight(g_display, g_screen),
+         .width = DisplayWidth(gDisplay, gScreen),
+         .height = DisplayHeight(gDisplay, gScreen),
       };
       // add monitor with first tag
-      HSTag *cur_tag = g_array_index(g_tags, HSTag*, 0);
+      Tag *cur_tag = g_array_index(g_tags, Tag*, 0);
       add_monitor(rect, cur_tag, 1);
       g_cur_monitor = 0;
       g_cur_frame = cur_tag->frame;
    }
 }
 
-HSFrame* frame_descend(HSFrame* frame){
+Frame* frame_descend(Frame* frame){
    while (frame->type == TYPE_FRAMES) {
       frame = (frame->content.layout.selection == 0) ?
                frame->content.layout.a : frame->content.layout.b;
@@ -445,7 +441,7 @@ HSFrame* frame_descend(HSFrame* frame){
 
 void cycle(const Arg *arg) {
     // find current selection
-    HSFrame* frame = get_current_monitor()->tag->frame;
+    Frame* frame = get_current_monitor()->tag->frame;
     frame = frame_descend(frame);
     if (frame->content.clients.count == 0)  return;
     
@@ -456,20 +452,20 @@ void cycle(const Arg *arg) {
     frame->content.clients.selection = index;
     Window window = frame->content.clients.buf[index];
     window_focus(window);
-    XRaiseWindow(g_display, window);
+    XRaiseWindow(gDisplay, window);
 }
 
-void frame_split(HSFrame* frame, int align, int fraction) {
+void frame_split(Frame* frame, int align, int fraction) {
     // ensure fraction is allowed
     fraction = CLAMP(fraction, FRACTION_UNIT * (0.0 + FRAME_MIN_FRACTION),
                                FRACTION_UNIT * (1.0 - FRAME_MIN_FRACTION));
 
-    HSFrame* first = frame_create_empty();
+    Frame* first = frame_create_empty();
     first->content = frame->content;
     first->type = TYPE_CLIENTS;
     first->parent = frame;
 
-    HSFrame* second = frame_create_empty();
+    Frame* second = frame_create_empty();
     second->type = TYPE_CLIENTS;
     second->parent = frame;
 
@@ -493,7 +489,7 @@ void frame_split(HSFrame* frame, int align, int fraction) {
 void split_v(const Arg *arg){
    int fraction = FRACTION_UNIT* CLAMP(arg->f, 0.0 + FRAME_MIN_FRACTION,
                                                1.0 - FRAME_MIN_FRACTION);
-   HSFrame* frame = get_current_monitor()->tag->frame;
+   Frame* frame = get_current_monitor()->tag->frame;
    frame = frame_descend(frame);
    frame_split(frame, ALIGN_VERTICAL, fraction);
 }
@@ -501,7 +497,7 @@ void split_v(const Arg *arg){
 void split_h(const Arg *arg){
    int fraction = FRACTION_UNIT* CLAMP(arg->f, 0.0 + FRAME_MIN_FRACTION,
                                                1.0 - FRAME_MIN_FRACTION);
-   HSFrame* frame = get_current_monitor()->tag->frame;
+   Frame* frame = get_current_monitor()->tag->frame;
    frame = frame_descend(frame);
    frame_split(frame, ALIGN_HORIZONTAL, fraction);
 }
@@ -519,7 +515,7 @@ void resize_frame(const Arg *arg){
         case 'd':   break;
         default:    return;
     }
-    HSFrame* neighbour = frame_neighbour(g_cur_frame, direction);
+    Frame* neighbour = frame_neighbour(g_cur_frame, direction);
     if (!neighbour) {
         // then try opposite direction
         switch (direction) {
@@ -532,7 +528,7 @@ void resize_frame(const Arg *arg){
         neighbour = frame_neighbour(g_cur_frame, direction);
         if (!neighbour)  return ;
     }
-    HSFrame* parent = neighbour->parent;
+    Frame* parent = neighbour->parent;
     assert(parent != NULL); // if has neighbour, it also must have a parent
     assert(parent->type == TYPE_FRAMES);
     int fraction = parent->content.layout.fraction;
@@ -545,34 +541,34 @@ void resize_frame(const Arg *arg){
     monitor_apply_layout(get_current_monitor());
 }
 
-HSFrame* frame_neighbour(HSFrame* frame, char direction) {
-    HSFrame* other;
+Frame* frame_neighbour(Frame* frame, char direction) {
+    Frame* other;
     bool found = false;
     while (frame->parent) {
         // find frame, where we can change the
         // selection in the desired direction
-        HSLayout* layout = &frame->parent->content.layout;
+        Layout* layout = &frame->parent->content.layout;
         switch(direction) {
             case 'r':
-                if (layout->align == ALIGN_HORIZONTAL && layout->a == frame) {
+                if (layout->align==ALIGN_HORIZONTAL && layout->a==frame) {
                     found = true;
                     other = layout->b;
                 }
                 break;
             case 'l':
-                if (layout->align == ALIGN_HORIZONTAL && layout->b == frame) {
+                if (layout->align==ALIGN_HORIZONTAL && layout->b==frame) {
                     found = true;
                     other = layout->a;
                 }
                 break;
             case 'd':
-                if (layout->align == ALIGN_VERTICAL && layout->a == frame) {
+                if (layout->align==ALIGN_VERTICAL && layout->a==frame) {
                     found = true;
                     other = layout->b;
                 }
                 break;
             case 'u':
-                if (layout->align == ALIGN_VERTICAL && layout->b == frame) {
+                if (layout->align==ALIGN_VERTICAL && layout->b==frame) {
                     found = true;
                     other = layout->a;
                 }
@@ -592,7 +588,7 @@ HSFrame* frame_neighbour(HSFrame* frame, char direction) {
 
 // finds a neighbour within frame in the specified direction
 // returns its index or -1 if there is none
-int frame_inner_neighbour_index(HSFrame* frame, char direction) {
+int frame_inner_neighbour_index(Frame* frame, char direction) {
     int index = -1;
     if (frame->type != TYPE_CLIENTS) {
         fprintf(stderr, "warning: frame has invalid type\n");
@@ -622,9 +618,9 @@ void focus(const Arg *arg){
       frame_focus_recursive(g_cur_frame);
       monitor_apply_layout(get_current_monitor());
    } else {
-      HSFrame* neighbour = frame_neighbour(g_cur_frame, direction);
+      Frame* neighbour = frame_neighbour(g_cur_frame, direction);
       if (neighbour != NULL) { // if neighbour was found
-         HSFrame* parent = neighbour->parent;
+         Frame* parent = neighbour->parent;
          // alter focus (from 0 to 1, from 1 to 0)
          int selection = parent->content.layout.selection;
          selection = (selection == 1) ? 0 : 1;
@@ -654,11 +650,11 @@ void shift(const Arg *arg) {
       frame_focus_recursive(g_cur_frame);
       monitor_apply_layout(get_current_monitor());
    } else {
-      HSFrame* neighbour = frame_neighbour(g_cur_frame, direction);
+      Frame* neighbour = frame_neighbour(g_cur_frame, direction);
       Window win = frame_focused_window(g_cur_frame);
       if (win && neighbour != NULL) { // if neighbour was found
          // change selection in parrent
-         HSFrame* parent = neighbour->parent;
+         Frame* parent = neighbour->parent;
          assert(parent);
          parent->content.layout.selection = ! parent->content.layout.selection;
          // move window to neighbour
@@ -673,7 +669,7 @@ void shift(const Arg *arg) {
    }
 }
 
-Window frame_focused_window(HSFrame* frame) {
+Window frame_focused_window(Frame* frame) {
     if (!frame) return (Window)0;
     
     // follow the selection to a leave
@@ -685,13 +681,13 @@ Window frame_focused_window(HSFrame* frame) {
     return (Window)0;
 }
 
-bool frame_focus_window(HSFrame* frame, Window win){
+bool frame_focus_window(Frame* frame, Window win){
    if(!frame) return false;
 
    if(frame->type == TYPE_CLIENTS){
       size_t count = frame->content.clients.count;
       Window* buf = frame->content.clients.buf;
-      // search for win iin buf
+      // search for win in buf
       for(int i=0; i<count; i++){
          if(buf[i] == win){
             //if found, set focus to it
@@ -720,13 +716,13 @@ bool frame_focus_window(HSFrame* frame, Window win){
 // switch_monitor if switch monitor to focus to window
 // returns if window was focused or not
 void focus_window(Window win, bool switch_tag, bool switch_monitor) {
-    HSClient* client = get_client_from_window(win);
+    Client* client = get_client_from_window(win);
     if (!client) return;
     
-    HSTag* tag = client->tag;
+    Tag* tag = client->tag;
     assert(client->tag);
-    HSMonitor* monitor = find_monitor_with_tag(tag);
-    HSMonitor* cur_mon = get_current_monitor();
+    Monitor* monitor = find_monitor_with_tag(tag);
+    Monitor* cur_mon = get_current_monitor();
     // if we are not allowed to switch tag and tag is not on 
     // current monitor (or on no monitor) then we cannot focus the window
     if (monitor != cur_mon && !switch_monitor)  return;
@@ -751,7 +747,7 @@ void focus_window(Window win, bool switch_tag, bool switch_monitor) {
     monitor_apply_layout(cur_mon);
 }
 
-int frame_focus_recursive(HSFrame* frame) {
+int frame_focus_recursive(Frame* frame) {
     // follow the selection to a leave
     frame = frame_descend(frame);
     g_cur_frame = frame;
@@ -768,12 +764,12 @@ int frame_focus_recursive(HSFrame* frame) {
 // if order <= 0 -> action(node); action(left); action(right);
 // if order == 1 -> action(left); action(node); action(right);
 // if order >= 2 -> action(left); action(right); action(node);
-void frame_do_recursive(HSFrame* frame, void (*action)(HSFrame*), int order) {
+void frame_do_recursive(Frame* frame, void (*action)(Frame*), int order) {
     if (!frame) return;
     
     if (frame->type == TYPE_FRAMES) {
         // clients and subframes
-        HSLayout* layout = &(frame->content.layout);
+        Layout* layout = &(frame->content.layout);
         if (order <= 0) action(frame);
         frame_do_recursive(layout->a, action, order);
         if (order == 1) action(frame);
@@ -785,7 +781,7 @@ void frame_do_recursive(HSFrame* frame, void (*action)(HSFrame*), int order) {
     }
 }
 
-static void frame_hide(HSFrame* frame) {
+void frame_hide(Frame* frame) {
     frame_set_visible(frame, false);
     if (frame->type == TYPE_CLIENTS) {
         Window* buf = frame->content.clients.buf;
@@ -795,7 +791,7 @@ static void frame_hide(HSFrame* frame) {
     }
 }
 
-void frame_show_clients(HSFrame* frame) {
+void frame_show_clients(Frame* frame) {
     if (frame->type == TYPE_CLIENTS) {
         Window* buf = frame->content.clients.buf;
         size_t count = frame->content.clients.count;
@@ -808,13 +804,13 @@ void frame_remove(const Arg *arg){
     frame_remove_function(g_cur_frame);
 }
 
-void frame_remove_function(HSFrame* frame){
+void frame_remove_function(Frame* frame){
    if(!frame->parent)   return;
 
     assert(g_cur_frame->type == TYPE_CLIENTS);
-    HSFrame* parent = g_cur_frame->parent;
-    HSFrame* first = g_cur_frame;
-    HSFrame* second;
+    Frame* parent = g_cur_frame->parent;
+    Frame* first = g_cur_frame;
+    Frame* second;
     if (first == parent->content.layout.a) {
         second = parent->content.layout.b;
     } else {
@@ -830,7 +826,7 @@ void frame_remove_function(HSFrame* frame){
         frame_insert_window(second, wins[i]);
     
     g_free(wins);
-    XDestroyWindow(g_display, parent->window);
+    XDestroyWindow(gDisplay, parent->window);
     // now do tree magic
     // and make second child the new parent set parent
     second->parent = parent->parent;
@@ -847,11 +843,15 @@ void frame_remove_function(HSFrame* frame){
     monitor_apply_layout(get_current_monitor());
 }
 
-HSMonitor* get_current_monitor() {
-    return &g_array_index(g_monitors, HSMonitor, g_cur_monitor);
+Monitor* get_current_monitor() {
+    return &g_array_index(g_monitors, Monitor, g_cur_monitor);
 }
 
-void frame_set_visible(HSFrame* frame, bool visible) {
+Monitor* get_primary_monitor() {
+   return &g_array_index(g_monitors, Monitor, 0);
+}
+
+void frame_set_visible(Frame* frame, bool visible) {
     if (!frame)                           return;
     if (frame->window_visible == visible) return;
     
@@ -861,7 +861,7 @@ void frame_set_visible(HSFrame* frame, bool visible) {
 
 // executes action for each client within frame and its subframes
 // if action fails (i.e. returns something != 0), then it abborts with this code
-int frame_foreach_client(HSFrame* frame, ClientAction action, void* data) {
+int frame_foreach_client(Frame* frame, ClientAction action, void* data) {
     int status;
     if (frame->type == TYPE_FRAMES) {
         status = frame_foreach_client(frame->content.layout.a, action, data);
@@ -873,7 +873,7 @@ int frame_foreach_client(HSFrame* frame, ClientAction action, void* data) {
         // frame->type == TYPE_CLIENTS
         Window* buf = frame->content.clients.buf;
         size_t count = frame->content.clients.count;
-        HSClient* client;
+        Client* client;
         for (int i = 0; i < count; i++) {
             client = get_client_from_window(buf[i]);
             // do action for each client
@@ -887,17 +887,17 @@ int frame_foreach_client(HSFrame* frame, ClientAction action, void* data) {
 
 void all_monitors_apply_layout() {
     for (int i=0; i<g_monitors->len; i++) {
-        HSMonitor* m = &g_array_index(g_monitors, HSMonitor, i);
+        Monitor* m = &g_array_index(g_monitors, Monitor, i);
         monitor_apply_layout(m);
     }
 }
 
-void monitor_set_tag(HSMonitor* monitor, HSTag* tag) {
-    HSMonitor* other = find_monitor_with_tag(tag);
+void monitor_set_tag(Monitor* monitor, Tag* tag) {
+    Monitor* other = find_monitor_with_tag(tag);
     if (monitor == other) return;
     if (other != NULL) return;
     
-    HSTag* old_tag = monitor->tag;
+    Tag* old_tag = monitor->tag;
     // 1. hide old tag
     frame_do_recursive(old_tag->frame, frame_hide, 2);
     // 2. show new tag
@@ -913,8 +913,8 @@ void monitor_set_tag(HSMonitor* monitor, HSTag* tag) {
 
 void use_tag(const Arg *arg) {
    int tagindex = arg->i;
-   HSMonitor* monitor = get_current_monitor();
-   HSTag*  tag = find_tag(tags[tagindex]);
+   Monitor* monitor = get_current_monitor();
+   Tag*  tag = find_tag(tags[tagindex]);
 
    if (monitor && tag)
       monitor_set_tag(get_current_monitor(), tag);
@@ -922,25 +922,25 @@ void use_tag(const Arg *arg) {
 
 void move_tag(const Arg *arg) {
    int tagindex = arg->i;
-   HSTag* target = find_tag(tags[tagindex]);
+   Tag* target = find_tag(tags[tagindex]);
    
    if (target)
       tag_move_window(target);
 }
 
-void tag_move_window(HSTag* target) {
-    HSFrame*  frame = g_cur_frame;
+void tag_move_window(Tag* target) {
+    Frame*  frame = g_cur_frame;
     Window window = frame_focused_window(frame);
     if (!g_cur_frame || !window) return;
     
-    HSMonitor* monitor = get_current_monitor();
+    Monitor* monitor = get_current_monitor();
     if (monitor->tag == target)  return;
     
-    HSMonitor* monitor_target = find_monitor_with_tag(target);
+    Monitor* monitor_target = find_monitor_with_tag(target);
     frame_remove_window(frame, window);
     // insert window into target
     frame_insert_window(target->frame, window);
-    HSClient* client = get_client_from_window(window);
+    Client* client = get_client_from_window(window);
     assert(client != NULL);
     client->tag = target;
 
@@ -960,14 +960,14 @@ void focus_monitor(const Arg *arg) {
     monitor_focus_by_index(new_selection);
 }
 
-int monitor_index_of(HSMonitor* monitor) {
-    return monitor - (HSMonitor*)g_monitors->data;
+int monitor_index_of(Monitor* monitor) {
+    return monitor - (Monitor*)g_monitors->data;
 }
 
 void monitor_focus_by_index(int new_selection) {
     new_selection = CLAMP(new_selection, 0, g_monitors->len - 1);
-    HSMonitor* old = &g_array_index(g_monitors, HSMonitor, g_cur_monitor);
-    HSMonitor* monitor = &g_array_index(g_monitors, HSMonitor, new_selection);
+    Monitor* old = &g_array_index(g_monitors, Monitor, g_cur_monitor);
+    Monitor* monitor = &g_array_index(g_monitors, Monitor, new_selection);
     if (old == monitor)    return;
     
     // change selection globals
@@ -983,7 +983,7 @@ void monitor_focus_by_index(int new_selection) {
     Window win, child;
     int wx, wy;
     unsigned int mask;
-    if (True == XQueryPointer(g_display, g_root, &win, &child,
+    if (True == XQueryPointer(gDisplay, gRoot, &win, &child,
              &rx, &ry, &wx, &wy, &mask)) {
        old->mouse.x = rx - old->rect.x;
        old->mouse.y = ry - old->rect.y;
@@ -1000,11 +1000,11 @@ void monitor_focus_by_index(int new_selection) {
     } else {
         new_x = monitor->rect.x + monitor->mouse.x;
         new_y = monitor->rect.y + monitor->mouse.y;
-        XWarpPointer(g_display, None, g_root, 0, 0, 0, 0, new_x, new_y);
+        XWarpPointer(gDisplay, None, gRoot, 0, 0, 0, 0, new_x, new_y);
     }
 }
 
-void create_bar(HSMonitor *mon) {
+void update_bar(Monitor* mon) {
    XSetWindowAttributes wa = {
       .override_redirect = True,
       .background_pixel = dc.colors[0][ColBG],
@@ -1013,14 +1013,15 @@ void create_bar(HSMonitor *mon) {
    };
 
    int width = mon->rect.width;
-   if(mon->primary==1) width -= systray_width;
-   mon->barwin = XCreateWindow(g_display, g_root,
-         mon->rect.x, mon->rect.y, width, bh, 0,
-         DefaultDepth(g_display, g_screen), CopyFromParent,
-         DefaultVisual(g_display, g_screen),
+   if(systray_visible && mon->primary==1)   width -= get_systray_width();
+   mon->barwin = XCreateWindow(gDisplay, gRoot,
+         mon->rect.x, mon->rect.y, width, bar_height, 0,
+         DefaultDepth(gDisplay, gScreen), CopyFromParent,
+         DefaultVisual(gDisplay, gScreen),
          CWOverrideRedirect|CWBackPixmap|CWEventMask, &wa);
 
-   XMapWindow(g_display, mon->barwin);
+   XDefineCursor(gDisplay, mon->barwin, cursor[CurNormal]);
+   XMapWindow(gDisplay, mon->barwin);
 }
 
 void drawborder(unsigned long col[ColLast]){
@@ -1028,11 +1029,11 @@ void drawborder(unsigned long col[ColLast]){
    XRectangle r = {dc.x, dc.y, dc.w, 2 };
 
    gcv.foreground = col[ColWindowBorder];
-   XChangeGC(g_display, dc.gc, GCForeground, &gcv);
-   XFillRectangles(g_display, dc.drawable, dc.gc, &r, 1);
+   XChangeGC(gDisplay, dc.gc, GCForeground, &gcv);
+   XFillRectangles(gDisplay, dc.drawable, dc.gc, &r, 1);
 }
 
-void drawcoloredtext(char *text, HSMonitor* mon){
+void drawcoloredtext(char *text, Monitor* mon){
    Bool first=True;
    char *buf = text, *ptr = buf, c = 1;
    unsigned long *col = dc.colors[0];
@@ -1064,8 +1065,8 @@ void drawtext(const char *text, unsigned long col[ColLast]){
    char buf[256];
    int i, x, y, h, len, olen;
 
-   XSetForeground(g_display, dc.gc, col[ColBG]);
-   XFillRectangle(g_display, dc.drawable, dc.gc, dc.x, dc.y+2, dc.w, dc.h);
+   XSetForeground(gDisplay, dc.gc, col[ColBG]);
+   XFillRectangle(gDisplay, dc.drawable, dc.gc, dc.x, dc.y+2, dc.w, dc.h);
    if(!text)   return;
 
    olen = strlen(text);
@@ -1079,18 +1080,18 @@ void drawtext(const char *text, unsigned long col[ColLast]){
    memcpy(buf, text, len);
    if(len < olen)
       for(i = len; i && i > len-3; buf[--i] = '.');
-   XSetForeground(g_display, dc.gc, col[ColFG]);
+   XSetForeground(gDisplay, dc.gc, col[ColFG]);
    if(dc.font.set)
-      XmbDrawString(g_display, dc.drawable, dc.font.set, dc.gc, x, y, buf, len);
+      XmbDrawString(gDisplay, dc.drawable, dc.font.set, dc.gc, x, y, buf, len);
    else
-      XDrawString(g_display, dc.drawable, dc.gc, x, y, buf, len);
+      XDrawString(gDisplay, dc.drawable, dc.gc, x, y, buf, len);
 }
 
 void initfont(const char *fontstr) {
    char *def, **missing;
    int n;
 
-   dc.font.set = XCreateFontSet(g_display, fontstr, &missing, &n, &def);
+   dc.font.set = XCreateFontSet(gDisplay, fontstr, &missing, &n, &def);
    if(missing) {
       while(n--)
          fprintf(stderr, "fusionwm: missing fontset: %s\n", missing[n]);
@@ -1109,8 +1110,8 @@ void initfont(const char *fontstr) {
          xfonts++;
       }
    } else {
-      if(!(dc.font.xfont = XLoadQueryFont(g_display, fontstr))
-            && !(dc.font.xfont = XLoadQueryFont(g_display, "fixed")))
+      if(!(dc.font.xfont = XLoadQueryFont(gDisplay, fontstr))
+            && !(dc.font.xfont = XLoadQueryFont(gDisplay, "fixed")))
          die("error, cannot load font: '%s'\n", fontstr);
       dc.font.ascent = dc.font.xfont->ascent;
       dc.font.descent = dc.font.xfont->descent;
@@ -1133,20 +1134,20 @@ int get_textw(const char *text){
    return textw;
 }
 
-HSMonitor* wintomon(Window w){
+Monitor* wintomon(Window w){
    int x, y;
-   HSClient *c;
-   HSMonitor *m, *r;
+   Client *c;
+   Monitor *m, *r;
    int di;
    unsigned int dui;
    Window dummy;
    int a, area = 0;
 
-   if(w == g_root && XQueryPointer(g_display, g_root, &dummy, &dummy, &x, &y, &di, &di, &dui)){
+   if(w == gRoot && XQueryPointer(gDisplay, gRoot, &dummy, &dummy, &x, &y, &di, &di, &dui)){
       m = get_current_monitor();
       
       for(int i=0; i<g_monitors->len; i++){
-         r = &g_array_index(g_monitors, HSMonitor, i);
+         r = &g_array_index(g_monitors, Monitor, i);
          a = MAX(0, MIN(x+1,r->rect.x+r->rect.width) - MAX(x,r->rect.x))
              * MAX(0, MIN(y+1,r->rect.y+r->rect.height) - MAX(y,r->rect.y));
          if(a > area) {
@@ -1157,7 +1158,7 @@ HSMonitor* wintomon(Window w){
       return m;
    }
    for(int i=0; i<g_monitors->len; i++){
-      m = &g_array_index(g_monitors, HSMonitor, i);
+      m = &g_array_index(g_monitors, Monitor, i);
       if(w == m->barwin) return m;
    }
    if((c = get_client_from_window(w))){
@@ -1167,28 +1168,32 @@ HSMonitor* wintomon(Window w){
    return get_current_monitor();
 }
 
-void updatestatus(void) {
-   if(!gettextprop(g_root, XA_WM_NAME, stext, sizeof(stext)))
+void update_status(void) {
+   if(!gettextprop(gRoot, XA_WM_NAME, stext, sizeof(stext)))
       strcpy(stext, "fusionwm-"VERSION);
    draw_bar(get_current_monitor());
 }
 
 void draw_bars(){
    for(int i=0; i<g_monitors->len; i++){
-      HSMonitor*m = &g_array_index(g_monitors, HSMonitor, i);
+      Monitor*m = &g_array_index(g_monitors, Monitor, i);
       draw_bar(m);
    }
+
+   updatesystray();
 }
 
-void draw_bar(HSMonitor* mon){
+void draw_bar(Monitor* mon){
+
+   resizebarwin(mon);
+
    unsigned long *col, *bordercol;
    char separator[] = "|";
    dc.x = 0;
    dc.w = mon->rect.width;
    drawborder(dc.colors[2]);
    int barwidth = mon->rect.width;
-   barwidth -= (mon->primary) ? systray_width : 0;
-   HSTag* thistag;
+   Tag* thistag;
 
    // Draw tag names
    for(int i=0; i < NUMTAGS; i++){
@@ -1215,16 +1220,20 @@ void draw_bar(HSMonitor* mon){
    if(mon->primary){
       dc.w = get_textw(stext) + 5;
       dc.x = barwidth - dc.w;
+      if(systray_visible) 
+         dc.x -= get_systray_width();
+
       if(dc.x < x) {
          dc.x = x;
          dc.w = mon->rect.width - x;
       }
+      //drawtext(stext, dc.colors[0]);
       drawcoloredtext(stext, mon);
    } else
       dc.x = mon->rect.width;
 
    // window title
-   if((dc.w = dc.x - x) > bh) {
+   if((dc.w = dc.x - x) > bar_height) {
          dc.x = x;
          Window win = frame_focused_window(mon->tag->frame);
          char* client_title;
@@ -1235,7 +1244,15 @@ void draw_bar(HSMonitor* mon){
          drawtext(client_title, dc.colors[0]);
    }
 
-   XCopyArea(g_display, dc.drawable, mon->barwin, dc.gc, 0, 0, barwidth, bh, 0, 0);
-   XSync(g_display, False);
+   XCopyArea(gDisplay, dc.drawable, mon->barwin, dc.gc, 0, 0, barwidth, bar_height, 0, 0);
+   XSync(gDisplay, False);
+}
+
+void resizebarwin(Monitor *m) {
+	unsigned int w = m->rect.width;
+	if(systray_visible && m->primary==1 )
+		w -= get_systray_width();
+
+	XMoveResizeWindow(gDisplay, m->barwin, m->rect.x, m->rect.y, w, bar_height);
 }
 

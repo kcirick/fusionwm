@@ -21,9 +21,9 @@ void die(const char *errstr, ...) {
 
 // get X11 color from color string
 unsigned long getcolor(const char *colstr) {
-    Colormap cmap = DefaultColormap(g_display, g_screen);
+    Colormap cmap = DefaultColormap(gDisplay, gScreen);
     XColor color;
-    if(!XAllocNamedColor(g_display, cmap, colstr, &color, &color))
+    if(!XAllocNamedColor(gDisplay, cmap, colstr, &color, &color))
         die("error, cannot allocate color '%s'\n", colstr);
     return color.pixel;
 }
@@ -36,12 +36,12 @@ bool gettextprop(Window w, Atom atom, char *text, unsigned int size) {
    if(!text || size==0) return False;
 
    text[0] = '\0';
-   XGetTextProperty(g_display, w, &name, atom);
+   XGetTextProperty(gDisplay, w, &name, atom);
    if(!name.nitems) return False;
 
    if(name.encoding == XA_STRING) {
       strncpy(text, (char *)name.value, size - 1);
-   } else if(XmbTextPropertyToTextList(g_display, &name, &list, &n) >= Success && n > 0 && *list) {
+   } else if(XmbTextPropertyToTextList(gDisplay, &name, &list, &n) >= Success && n > 0 && *list) {
       strncpy(text, *list, size - 1);
       XFreeStringList(list);
    }
@@ -57,7 +57,7 @@ void spawn(const Arg *arg){
    if(!(sh = getenv("SHELL"))) sh = "/bin/sh";
 
    if((pid = fork()) == 0){
-      if(g_display) close(ConnectionNumber(g_display));
+      if(gDisplay) close(ConnectionNumber(gDisplay));
 
       setsid();
       execl(sh, sh, "-c", (char*)arg->v, (char*)NULL);
@@ -65,5 +65,5 @@ void spawn(const Arg *arg){
 }
 
 void quit(const Arg *arg) {
-   g_aboutToQuit = true;
+   gAboutToQuit = true;
 }

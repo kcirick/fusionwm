@@ -1,5 +1,5 @@
 # fusionwm version
-VERSION = 0.4
+VERSION = 1.0
 
 # paths
 X11INC = /usr/X11R6/include
@@ -16,12 +16,9 @@ CFLAGS += -DVERSION=\"$(VERSION)\"
 LDFLAGS = -g
 
 # project
-SRCDIR = src
-HDRDIR = include
-OBJDIR = obj
-SRC = $(wildcard $(SRCDIR)/*.c)
-HEADER = $(wildcard $(HDRDIR)/*.h)
-OBJ = $(addprefix $(OBJDIR)/,$(notdir $(SRC:.c=.o)))
+SRC = $(wildcard src/*.c)
+HEADER = $(wildcard include/*.h)
+OBJ = $(addprefix obj/,$(notdir $(SRC:.c=.o)))
 TARGET = fusionwm
 
 all: $(TARGET)
@@ -30,7 +27,7 @@ $(TARGET): $(OBJ)
 	@echo " LD " $(TARGET)
 	@$(LD) -o $@ $(LDFLAGS)  $(OBJ) $(LIBS)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(HEADER)
+obj/%.o: src/%.c $(HEADER)
 	@echo " CC " $<
 	@$(CC) -c $(CFLAGS) -o $@ $<
 

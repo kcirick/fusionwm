@@ -7,34 +7,30 @@
 #include "layout.h"
 #include "globals.h"
 #include "config.h"
+#include "systray.h"
 
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/wait.h>
 
 static int (*g_xerrorxlib)(Display *, XErrorEvent *);
-static unsigned int numlockmask = 0;
 
 // handler for X-Events
-void buttonpress(XEvent* event);
 void configurerequest(XEvent* event);
 void configurenotify(XEvent* event);
 void destroynotify(XEvent* event);
 void enternotify(XEvent* event);
-void keypress(XEvent* event);
 void mappingnotify(XEvent* event);
 void mapnotify(XEvent *event);
 void maprequest(XEvent* event);
 void propertynotify(XEvent* event);
+void resizerequest(XEvent* event);
 void unmapnotify(XEvent* event);
 void expose(XEvent* event);
 
-/* clicks */
-enum { ClkTagBar, ClkStatusText, ClkWinTitle, ClkClientWin, ClkRootWin, ClkLast }; 
-
-/* There's no way to check accesses to destroyed windows, thus those cases are
- * ignored (especially on UnmapNotify's).  Other types of errors call Xlibs
- * default error handler, which may call exit.  */
+/* There's no way to check accesses to destroyed windows, thus those 
+ * cases are ignored (especially on UnmapNotify's).  Other types of 
+ * errors call Xlibs default error handler, which may call exit.  */
 int xerror(Display *dpy, XErrorEvent *ee) {
     if(ee->error_code == BadWindow
     || (ee->request_code == X_SetInputFocus && ee->error_code == BadMatch)
@@ -51,10 +47,11 @@ int xerror(Display *dpy, XErrorEvent *ee) {
     if (ee->error_code == BadDrawable)
         return 0;
     
-    return g_xerrorxlib(dpy, ee); /* may call exit */
+    return g_xerrorxlib(dpy, ee); // may call exit
 }
 
-/* Startup Error handler to check if another window manager is already running. */
+/* Startup Error handler to check if another window manager is already 
+ * running. */
 int xerrorstart(Display *dpy, XErrorEvent *ee) {
    die("fusionwm: abother window manager is already running\n"); 
    return -1;
@@ -63,10 +60,10 @@ int xerrorstart(Display *dpy, XErrorEvent *ee) {
 void checkotherwm(void) {
     g_xerrorxlib = XSetErrorHandler(xerrorstart);
     /* this causes an error if some other window manager is running */
-    XSelectInput(g_display, DefaultRootWindow(g_display), SubstructureRedirectMask);
-    XSync(g_display, False);
+    XSelectInput(gDisplay, DefaultRootWindow(gDisplay), SubstructureRedirectMask);
+    XSync(gDisplay, False);
     XSetErrorHandler(xerror);
-    XSync(g_display, False);
+    XSync(gDisplay, False);
 }
 
 // scan for windows and add them to the list of managed clients
@@ -75,18 +72,18 @@ void scan(void) {
     Window d1, d2, *wins = NULL;
     XWindowAttributes wa;
 
-    if(XQueryTree(g_display, g_root, &d1, &d2, &wins, &num)) {
+    if(XQueryTree(gDisplay, gRoot, &d1, &d2, &wins, &num)) {
         for(i = 0; i < num; i++) {
-            if(!XGetWindowAttributes(g_display, wins[i], &wa)
-            || wa.override_redirect || XGetTransientForHint(g_display, wins[i], &d1))
+            if(!XGetWindowAttributes(gDisplay, wins[i], &wa)
+            || wa.override_redirect || XGetTransientForHint(gDisplay, wins[i], &d1))
                 continue;
             if (wa.map_state == IsViewable)
                 manage_client(wins[i]);
         }
         for(i = 0; i < num; i++){ // now the transients
-           if(!XGetWindowAttributes(g_display, wins[i], &wa))
+           if(!XGetWindowAttributes(gDisplay, wins[i], &wa))
               continue;
-           if(XGetTransientForHint(g_display, wins[i], &d1)
+           if(XGetTransientForHint(gDisplay, wins[i], &d1)
               && (wa.map_state == IsViewable))
               manage_client(wins[i]);
         }
@@ -113,55 +110,18 @@ static void (*handler[LASTEvent]) (XEvent *) = {
    [ MapNotify        ] = mapnotify,
    [ MapRequest       ] = maprequest,
    [ PropertyNotify   ] = propertynotify,
+   [ ResizeRequest    ] = resizerequest,
    [ UnmapNotify      ] = unmapnotify
 };
 
 // event handler implementations 
-void buttonpress(XEvent* event) {
-   XButtonEvent* be = &(event->xbutton);
-   unsigned int i, x, click;
-   Arg arg = {0};
-   HSMonitor *m;
-
-   // focus monitor if necessary
-   if((m = wintomon(be->window)) && m != get_current_monitor()) 
-      monitor_focus_by_index(monitor_index_of(m));
-   
-   if (be->window == g_root && be->subwindow != None) {
-      mouse_function(event);
-   } else {
-      if(be->window == get_current_monitor()->barwin){
-         i = x = 0;
-         do    x += get_textw(tags[i]);
-         while (be->x >= x && ++i < NUMTAGS);
-         if(i < NUMTAGS){
-            click = ClkTagBar;
-            arg.i = i;
-         } else
-            click = ClkWinTitle;
-      }
-      if(click==ClkTagBar && be->button==Button1 && CLEANMASK(be->state)==0)
-         use_tag(&arg);
-
-      if (be->button==Button1 || be->button==Button2 || be->button==Button3) {
-         // only change focus on real clicks... not when scrolling
-         if (raise_on_click)
-            XRaiseWindow(g_display, be->window);
-
-         focus_window(be->window, false, true);
-      }
-      // handling of event is finished, now propagate event to window
-      XAllowEvents(g_display, ReplayPointer, CurrentTime);
-   }
-}
-
 void configurerequest(XEvent* event) {
    XConfigureRequestEvent* cre = &event->xconfigurerequest;
-   HSClient* client = get_client_from_window(cre->window);
+   Client* client = get_client_from_window(cre->window);
    if (client) {
       XConfigureEvent ce;
       ce.type = ConfigureNotify;
-      ce.display = g_display;
+      ce.display = gDisplay;
       ce.event = cre->window;
       ce.window = cre->window;
       ce.x = client->last_size.x;
@@ -171,7 +131,7 @@ void configurerequest(XEvent* event) {
       ce.override_redirect = False;
       ce.border_width = cre->border_width;
       ce.above = cre->above;
-      XSendEvent(g_display, cre->window, False, StructureNotifyMask, (XEvent*)&ce);
+      XSendEvent(gDisplay, cre->window, False, StructureNotifyMask, (XEvent*)&ce);
    } else {
       // if client not known.. then allow configure.
       // its probably a nice conky or dzen2 bar :)
@@ -183,16 +143,24 @@ void configurerequest(XEvent* event) {
       wc.border_width = cre->border_width;
       wc.sibling = cre->above;
       wc.stack_mode = cre->detail;
-      XConfigureWindow(g_display, cre->window, cre->value_mask, &wc);
+      XConfigureWindow(gDisplay, cre->window, cre->value_mask, &wc);
    }
 }
 
 void configurenotify(XEvent* event){
    XConfigureEvent *ev = &event->xconfigure;
-   HSMonitor *m = get_current_monitor();
+   Monitor *m = get_current_monitor();
 
-   if(ev->window == g_root)
-      XMoveResizeWindow(g_display, m->barwin, m->rect.x, m->rect.y, m->rect.width, bh);
+   if(ev->window == gRoot){
+      update_monitors();
+      if(m->rect.width != ev->width){
+         if(dc.drawable != 0)
+            XFreePixmap(gDisplay, dc.drawable);
+         dc.drawable = XCreatePixmap(gDisplay, gRoot, ev->width, bar_height, DefaultDepth(gDisplay, gScreen));
+      }
+      //update_bar(m);
+      //draw_bars();
+   }
 }
 
 void destroynotify(XEvent* event) {
@@ -209,10 +177,6 @@ void expose(XEvent* event){
    if(ev->count == 0) draw_bar(get_current_monitor());
 }
 
-void keypress(XEvent* event) {
-    key_press(event);
-}
-
 void mappingnotify(XEvent* event) {
    // regrab when keyboard map changes
    XMappingEvent *ev = &event->xmapping;
@@ -221,7 +185,7 @@ void mappingnotify(XEvent* event) {
 }
 
 void mapnotify(XEvent* event) {
-   HSClient* c;
+   Client* c;
    if ((c = get_client_from_window(event->xmap.window))) {
       // reset focus. so a new window gets the focus if it shall have the input focus
       frame_focus_recursive(g_cur_frame);
@@ -232,19 +196,34 @@ void mapnotify(XEvent* event) {
 
 void maprequest(XEvent* event) {
     XMapRequestEvent* mapreq = &event->xmaprequest;
+    Client *c;
+
+    if((c = wintosystrayicon(mapreq->window))) {
+       resizebarwin(get_current_monitor());
+       updatesystray();
+    }
+
     if (!get_client_from_window(mapreq->window)) {
-        // client should be managed (is not ignored)
-        // but is not managed yet
-        HSClient* client = manage_client(mapreq->window);
+        // client should be managed (is not ignored but is not managed yet
+        Client* client = manage_client(mapreq->window);
         if (client && find_monitor_with_tag(client->tag)) 
-            XMapWindow(g_display, mapreq->window);
+            XMapWindow(gDisplay, mapreq->window);
     } 
 }
 
 void propertynotify(XEvent* event) {
     XPropertyEvent *ev = &event->xproperty;
-    HSClient* client;
-    if((ev->window == g_root) && (ev->atom == XA_WM_NAME))  updatestatus();
+    Client* client;
+
+    if((client = wintosystrayicon(ev->window))) {
+       if(ev->atom == XA_WM_NORMAL_HINTS)
+          updatesystrayicongeom(client, client->last_size.width, client->last_size.height);
+
+       resizebarwin(get_current_monitor());
+       updatesystray();
+    }
+
+    if((ev->window == gRoot) && (ev->atom == XA_WM_NAME))  update_status();
 
     if (ev->state == PropertyNewValue &&
           (client = get_client_from_window(ev->window))) {
@@ -254,30 +233,56 @@ void propertynotify(XEvent* event) {
     draw_bars();
 }
 
+void resizerequest(XEvent *event) {
+   XResizeRequestEvent *ev = &event->xresizerequest;
+   Client *client;
+
+   if((client = wintosystrayicon(ev->window))) {
+      updatesystrayicongeom(client, ev->width, ev->height);
+      resizebarwin(get_current_monitor());
+      updatesystray();
+   }
+}
+
 void unmapnotify(XEvent* event) {
     unmanage_client(event->xunmap.window);
+    
+    Client* client;
+    XUnmapEvent *ev = &event->xunmap;
+
+    if((client = wintosystrayicon(ev->window))) {
+		removesystrayicon(client);
+		resizebarwin(get_current_monitor());
+		updatesystray();
+	}
 }
 
 void setup(){
    // remove zombies on SIGCHLD
    sigchld(0);
 
-   g_screen = DefaultScreen(g_display);
-   g_root = RootWindow(g_display, g_screen);
-   XSelectInput(g_display, g_root, ROOT_EVENT_MASK);
+   gScreen = DefaultScreen(gDisplay);
+   gRoot = RootWindow(gDisplay, gScreen);
+   
+   XSelectInput(gDisplay, gRoot, ROOT_EVENT_MASK);
+   XDefineCursor(gDisplay, gRoot, cursor[CurNormal]);
 
    // initialize subsystems
    inputs_init();
    clientlist_init();
    layout_init();
+	systray_init();
+   update_status();
 }
 
 void cleanup() {
+   inputs_destroy();
    clientlist_destroy();
    layout_destroy();
+   systray_destroy();
 }
 
-// --- Main Function --------------------------------------------------------------------
+// --- Main Function ------------------------------------------------------
 int main(int argc, char* argv[]) {
 
    if(argc == 2 && !strcmp("-v", argv[1]))
@@ -288,7 +293,7 @@ int main(int argc, char* argv[]) {
    if(!setlocale(LC_CTYPE, "") || !XSupportsLocale())
       fputs("warning: no locale support\n", stderr);
 
-   if(!(g_display = XOpenDisplay(NULL)))
+   if(!(gDisplay = XOpenDisplay(NULL)))
       die("fusionwm: cannot open display\n");
    checkotherwm();
 
@@ -299,14 +304,14 @@ int main(int argc, char* argv[]) {
 
    // Main loop
    XEvent event;
-   XSync(g_display, False);
-   while (!g_aboutToQuit && !XNextEvent(g_display, &event))
+   XSync(gDisplay, False);
+   while (!gAboutToQuit && !XNextEvent(gDisplay, &event))
       if(handler[event.type])
          handler[event.type](&event); // call handler
 
    // Cleanup
    cleanup();
-   XCloseDisplay(g_display);
+   XCloseDisplay(gDisplay);
 
    return EXIT_SUCCESS;
 }

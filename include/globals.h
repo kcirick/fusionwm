@@ -50,7 +50,8 @@ typedef union {
 } Arg;
 
 //---
-void die(const char *errstr, ...);
+void say(const char *type, const char *message, ...);
+void die(const char *type, const char *errstr, ...);
 unsigned long getcolor(const char *colstr);
 bool gettextprop(Window w, Atom atom, char *text, unsigned int size);
 void spawn(const Arg *arg);

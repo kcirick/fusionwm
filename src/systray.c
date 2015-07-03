@@ -18,7 +18,7 @@ void systray_init(){
 
    // init systray
    if(!(gSystray = (Systray *)calloc(1, sizeof(Systray))))
-      die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
+      die("FATAL", "Could not malloc() %u bytes", sizeof(Systray));
 
    gSystray->window = XCreateSimpleWindow(gDisplay, gRoot, 
          monitor->rect.x+ monitor->rect.width, monitor->rect.y, 1, bar_height, 0, 0, dc.colors[1][ColBG]);
@@ -36,7 +36,7 @@ void systray_init(){
    if(XGetSelectionOwner(gDisplay, g_netatom[NetSystemTray]) == gSystray->window) {
       XSync(gDisplay, False);
    } else {
-      fprintf(stderr, "fusionwm: unable to obtain system tray.\n");
+      say("ERROR", "Unable to obtain system tray.");
       free(gSystray);
       gSystray = NULL;
       return;

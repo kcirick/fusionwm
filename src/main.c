@@ -42,7 +42,7 @@ int xerror(Display *dpy, XErrorEvent *ee) {
     || (ee->request_code == X_GrabKey && ee->error_code == BadAccess)
     || (ee->request_code == X_CopyArea && ee->error_code == BadDrawable))
         return 0;
-    fprintf(stderr, "fusionwm: fatal error: request code=%d, error code=%d\n",
+    say("FATAL", "Request code=%d, error code=%d",
             ee->request_code, ee->error_code);
     if (ee->error_code == BadDrawable)
         return 0;
@@ -53,7 +53,7 @@ int xerror(Display *dpy, XErrorEvent *ee) {
 /* Startup Error handler to check if another window manager is already 
  * running. */
 int xerrorstart(Display *dpy, XErrorEvent *ee) {
-   die("fusionwm: abother window manager is already running\n"); 
+   die("ERROR", "Another window manager is already running"); 
    return -1;
 }
 
@@ -93,7 +93,7 @@ void scan(void) {
 
 void sigchld(int unused){
    if(signal(SIGCHLD, sigchld) == SIG_ERR)
-      die("Can't install SIGCHLD handler");
+      die("ERROR", "Can't install SIGCHLD handler");
    while(0 < waitpid(-1, NULL, WNOHANG));
 }
 
@@ -286,15 +286,15 @@ void cleanup() {
 int main(int argc, char* argv[]) {
 
    if(argc == 2 && !strcmp("-v", argv[1]))
-      die("fusionwm-"VERSION" \n");
+      die("INFO", "FusionWM-"VERSION);
    else if (argc != 1)
-      die("usage: fusionwm [-v]\n");
+      die("INFO", "Usage: fusionwm [-v]");
 
    if(!setlocale(LC_CTYPE, "") || !XSupportsLocale())
-      fputs("warning: no locale support\n", stderr);
+      say("WARNING", "No locale support");
 
    if(!(gDisplay = XOpenDisplay(NULL)))
-      die("fusionwm: cannot open display\n");
+      die("ERROR", "Cannot open display");
    checkotherwm();
 
    // Setup

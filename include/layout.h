@@ -19,11 +19,11 @@ typedef int (*ClientAction)(struct Client*, void* data);
 #define FRACTION_UNIT 10000
 
 typedef struct Layout {
-    int align;         // ALIGN_VERTICAL or ALIGN_HORIZONTAL
+    int align;       // ALIGN_VERTICAL or ALIGN_HORIZONTAL
     struct Frame* a; // first child
     struct Frame* b; // second child
     int selection;
-    int fraction; // size of first child relative to whole size
+    int fraction;    // size of first child relative to whole size
 } Layout;
 
 typedef struct Frame {
@@ -56,7 +56,7 @@ typedef struct Monitor {
 
 typedef struct Tag {
     const char* name;   // name of this tag
-    Frame*    frame;  // the master frame
+    Frame*    frame;    // the master frame
     bool       urgent;
 } Tag;
 
@@ -76,9 +76,9 @@ typedef struct {
 
 //--- Variables
 int         g_cur_monitor;
-Frame*      g_cur_frame; // currently selected frame
-GArray*     g_tags; // Array of Tag*
-GArray*     g_monitors; // Array of Monitor
+Frame*      g_cur_frame;   // currently selected frame
+GArray*     g_tags;        // Array of Tags
+GArray*     g_monitors;    // Array of Monitors
 DC          dc;
 
 char stext[256];
@@ -127,6 +127,7 @@ void add_tag(const char* name);
 Tag* find_tag(const char* name);
 void move_tag(const Arg *arg);
 void tag_move_window(Tag* target);
+void use_tag(const Arg *arg);
 
 // for monitors
 Monitor* find_monitor_with_tag(Tag* tag);
@@ -137,7 +138,6 @@ void focus_monitor(const Arg *arg);
 Monitor* get_current_monitor();
 Monitor* get_primary_monitor();
 void monitor_set_tag(Monitor* monitor, Tag* tag);
-void use_tag(const Arg *arg);
 void monitor_apply_layout(Monitor* monitor);
 void all_monitors_apply_layout();
 void update_monitors();

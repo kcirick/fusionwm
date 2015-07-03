@@ -379,7 +379,7 @@ void update_monitors() {
       XineramaScreenInfo *unique = NULL;
 
       if(!(unique = (XineramaScreenInfo *)malloc(sizeof(XineramaScreenInfo)*nn)))
-         die("fatal: could not malloc() %u bytes\n", sizeof(XineramaScreenInfo)*nn);
+         die("FATAL", "Could not malloc() %u bytes", sizeof(XineramaScreenInfo)*nn);
       for(i=0, j=0; i<nn; i++)
          if(is_unique_geometry(unique, j, &info[i]))
             memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
@@ -591,7 +591,7 @@ Frame* frame_neighbour(Frame* frame, char direction) {
 int frame_inner_neighbour_index(Frame* frame, char direction) {
     int index = -1;
     if (frame->type != TYPE_CLIENTS) {
-        fprintf(stderr, "warning: frame has invalid type\n");
+        say("WARNING", "Frame has invalid type");
         return -1;
     }
     int selection = frame->content.clients.selection;
@@ -1094,7 +1094,7 @@ void initfont(const char *fontstr) {
    dc.font.set = XCreateFontSet(gDisplay, fontstr, &missing, &n, &def);
    if(missing) {
       while(n--)
-         fprintf(stderr, "fusionwm: missing fontset: %s\n", missing[n]);
+         say("ERROR", "Missing fontset: %s", missing[n]);
       XFreeStringList(missing);
    }
    if(dc.font.set) {
@@ -1112,7 +1112,7 @@ void initfont(const char *fontstr) {
    } else {
       if(!(dc.font.xfont = XLoadQueryFont(gDisplay, fontstr))
             && !(dc.font.xfont = XLoadQueryFont(gDisplay, "fixed")))
-         die("error, cannot load font: '%s'\n", fontstr);
+         die("ERROR", "Cannot load font: '%s'", fontstr);
       dc.font.ascent = dc.font.xfont->ascent;
       dc.font.descent = dc.font.xfont->descent;
    }
@@ -1170,7 +1170,7 @@ Monitor* wintomon(Window w){
 
 void update_status(void) {
    if(!gettextprop(gRoot, XA_WM_NAME, stext, sizeof(stext)))
-      strcpy(stext, "fusionwm-"VERSION);
+      strcpy(stext, "FusionWM-"VERSION);
    draw_bar(get_current_monitor());
 }
 

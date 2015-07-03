@@ -11,12 +11,13 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 
-void die(const char *errstr, ...) {
-    va_list ap;
-    va_start(ap, errstr);
-    vfprintf(stderr, errstr, ap);
-    va_end(ap);
-    exit(EXIT_FAILURE);
+void say(const char* type, const char *message, ...) {
+   fprintf(stderr, "FusionWM [%s]: %s\n", type, message);
+}
+
+void die(const char* type, const char *errstr, ...) {
+   fprintf(stderr, "FusionWM [%s]: %s\n", type, errstr);
+   exit(EXIT_FAILURE);
 }
 
 // get X11 color from color string
@@ -24,7 +25,7 @@ unsigned long getcolor(const char *colstr) {
     Colormap cmap = DefaultColormap(gDisplay, gScreen);
     XColor color;
     if(!XAllocNamedColor(gDisplay, cmap, colstr, &color, &color))
-        die("error, cannot allocate color '%s'\n", colstr);
+        die("ERROR", "Cannot allocate color '%s'\n", colstr);
     return color.pixel;
 }
 

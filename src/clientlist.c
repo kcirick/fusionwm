@@ -69,7 +69,7 @@ void ewmh_handle_client_message(XEvent* event) {
       // add systray icons
       if(me->data.l[1] == SYSTEM_TRAY_REQUEST_DOCK) {
          if(!(client = (Client *)calloc(1, sizeof(Client))))
-            die("fatal: could not malloc() %u bytes\n", sizeof(Client));
+            die("FATAL", "Could not malloc() %u bytes", sizeof(Client));
 
          client->window = me->data.l[2];
          client->next = gSystray->icon;
@@ -276,8 +276,8 @@ void client_resize(Client* client, XRectangle rect) {
               m->rect.x, m->rect.y, m->rect.width, m->rect.height);
     } else if (!client->floating) {
        // apply border width
-       //rect.width  -= (window_border_width*2);
-       //rect.height -= (window_border_width*2);
+       rect.width  -= (window_border_width*2);
+       rect.height -= (window_border_width*2);
        // ensure minimum size
        if (rect.width < WIN_MIN_WIDTH)    rect.width = WIN_MIN_WIDTH;
        if (rect.height < WIN_MIN_HEIGHT)  rect.height = WIN_MIN_HEIGHT;

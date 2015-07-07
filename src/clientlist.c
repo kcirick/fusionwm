@@ -9,7 +9,7 @@
 #include "config.h"
 #include "systray.h"
 
-unsigned long wincolors[NUMCOLORS][ColLast];
+unsigned long wincolors[NCOLORS][ColLast];
 
 static Client* create_client() {
     Client* hc   = g_new0(Client, 1);
@@ -135,7 +135,7 @@ void clientlist_init() {
    g_clients = g_array_new(false, false, sizeof(Client*));
 
    //init colors
-   for(int i=0; i<NUMCOLORS; i++){
+   for(int i=0; i<NCOLORS; i++){
       wincolors[i][ColFrameBorder] = getcolor(colors[i][ColFrameBorder]);
       wincolors[i][ColWindowBorder] = getcolor(colors[i][ColWindowBorder]);
       wincolors[i][ColFG] = getcolor(colors[i][ColFG]);

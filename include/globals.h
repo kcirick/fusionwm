@@ -14,14 +14,12 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
-#define LENGTH(X) (sizeof(X)/sizeof(*X))
-#define ATOM(A) XInternAtom(gDisplay, (A), False)
-
 #define WIN_MIN_HEIGHT 32
 #define WIN_MIN_WIDTH 32
 #define FRAME_MIN_FRACTION 0.1
 #define STRING_BUF_SIZE 256
 
+#define LENGTH(X) (sizeof(X)/sizeof(*X))
 #define RECTANGLE_EQUALS(a, b) (\
         (a).x == (b).x && (a).y == (b).y && \
         (a).width == (b).width && (a).height == (b).height )

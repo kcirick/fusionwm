@@ -6,7 +6,8 @@
 
 static KeyBinding keys[] = {
    // modifier                key         function       argument
-   { MODKEY|ShiftMask,        XK_Return,  spawn,         {.v = "xfce4-terminal --hide-menubar"} },
+   //{ MODKEY|ShiftMask,        XK_Return,  spawn,         {.v = "xfce4-terminal --hide-menubar"} },
+   { MODKEY|ShiftMask,        XK_Return,  spawn,         {.v = "urxvt"} },
    { MODKEY|ShiftMask,        XK_w,       spawn,         {.v = "google-chrome-stable"} },
    { MODKEY|ShiftMask,        XK_t,       spawn,         {.v = "thunar"} },
    { MODKEY|ShiftMask,        XK_r,       spawn,         {.v = "gmrun"} },

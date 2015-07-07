@@ -25,6 +25,8 @@ void inputs_init() {
 	cursor[CurResize] = XCreateFontCursor(gDisplay, XC_sizing);
 	cursor[CurMove] = XCreateFontCursor(gDisplay, XC_fleur);
 
+   XDefineCursor(gDisplay, gRoot, cursor[CurNormal]);
+
    grab_keys();
    grab_buttons();
 }
@@ -143,8 +145,8 @@ void buttonpress(XEvent* event) {
       if(be->window == get_current_monitor()->barwin){
          i = x = 0;
          do    x += get_textw(tags[i]);
-         while (be->x >= x && ++i < NUMTAGS);
-         if(i < NUMTAGS){
+         while (be->x >= x && ++i < NTAGS);
+         if(i < NTAGS){
             click = ClkTagBar;
             arg.i = i;
          } else if (be->x > get_current_monitor()->rect.width - get_systray_width() - get_textw(stext))

@@ -24,7 +24,7 @@ void layout_init() {
     initfont(font);
 
     //init colors
-    for(int i=0; i<NUMCOLORS; i++){
+    for(int i=0; i<NCOLORS; i++){
       dc.colors[i][ColFrameBorder] = getcolor(colors[i][ColFrameBorder]);
       dc.colors[i][ColWindowBorder] = getcolor(colors[i][ColWindowBorder]);
       dc.colors[i][ColFG] = getcolor(colors[i][ColFG]);
@@ -38,7 +38,7 @@ void layout_init() {
 
     if(!dc.font.set) XSetFont(gDisplay, dc.gc, dc.font.xfont->fid);
 
-    for(int i=0; i<NUMTAGS; i++)
+    for(int i=0; i<NTAGS; i++)
        add_tag(tags[i]);
 
     update_monitors();
@@ -1040,7 +1040,7 @@ void drawcoloredtext(char *text, Monitor* mon){
    int i, ox = dc.x;
 
    while( *ptr ) {
-      for( i = 0; *ptr < 0 || *ptr > NUMCOLORS; i++, ptr++);
+      for( i = 0; *ptr < 0 || *ptr > NCOLORS; i++, ptr++);
       if( !*ptr ) break;
       c=*ptr;
       *ptr=0;
@@ -1196,7 +1196,7 @@ void draw_bar(Monitor* mon){
    Tag* thistag;
 
    // Draw tag names
-   for(int i=0; i < NUMTAGS; i++){
+   for(int i=0; i < NTAGS; i++){
       dc.w = get_textw(tags[i]);
       thistag = find_tag(tags[i]);
       col = dc.colors[2];

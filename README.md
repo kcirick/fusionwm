@@ -18,6 +18,10 @@ Difference from DWM:
   - Better code organization
   - Exclusive number of tags: the defined number of tags don't double if you attach an external monitor
 
+Other differences and features:
+-------------------------------
+  - Native systray
+
 A Screenshot:
 -------------
 <a href="https://lh5.googleusercontent.com/-fevbPpfXtTY/T3m0ohBNHeI/AAAAAAAABmg/Pj8T6rbxJ1c/s1366/2012-04-02-SSDirty.png"><img src="https://lh5.googleusercontent.com/-fevbPpfXtTY/T3m0ohBNHeI/AAAAAAAABmg/Pj8T6rbxJ1c/s450/2012-04-02-SSDirty.png" /></a>

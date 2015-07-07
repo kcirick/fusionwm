@@ -7,7 +7,7 @@
 
 #include "globals.h"
 
-#define SYSTEM_TRAY_REQUEST_DOCK    0
+#define SYSTEM_TRAY_REQUEST_DOCK          0
 #define _NET_SYSTEM_TRAY_ORIENTATION_HORZ 0
 
 // XEMBED messages

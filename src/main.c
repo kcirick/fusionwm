@@ -263,9 +263,7 @@ void setup(){
 
    gScreen = DefaultScreen(gDisplay);
    gRoot = RootWindow(gDisplay, gScreen);
-   
    XSelectInput(gDisplay, gRoot, ROOT_EVENT_MASK);
-   XDefineCursor(gDisplay, gRoot, cursor[CurNormal]);
 
    // initialize subsystems
    inputs_init();

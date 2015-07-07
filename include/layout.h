@@ -44,11 +44,11 @@ typedef struct Frame {
 } Frame;
 
 typedef struct Monitor {
-    struct Tag*      tag;    // currently viewed tag
+    struct Tag* tag;    // currently viewed tag
     struct {
         int x;
         int y;
-    } mouse; // last saved mouse position
+    } mouse;            // last saved mouse position
     XRectangle  rect;   // area for this monitor
     Window barwin;
     int primary;

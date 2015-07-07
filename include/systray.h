@@ -30,7 +30,7 @@ Systray* gSystray;
 void systray_init();
 void systray_destroy();
 unsigned int get_systray_width();
-void removesystrayicon(Client *i);
+void remove_systray_icon(Client *i);
 void updatesystray(void);
 void updatesystrayicongeom(Client *i, int w, int h);
 Client *wintosystrayicon(Window w);

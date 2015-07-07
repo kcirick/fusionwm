@@ -42,11 +42,9 @@ int xerror(Display *dpy, XErrorEvent *ee) {
     || (ee->request_code == X_GrabKey && ee->error_code == BadAccess)
     || (ee->request_code == X_CopyArea && ee->error_code == BadDrawable))
         return 0;
-    say("FATAL", "Request code=%d, error code=%d",
-            ee->request_code, ee->error_code);
-    if (ee->error_code == BadDrawable)
-        return 0;
-    
+
+    say("FATAL", "Request code=%d, error code=%d", 
+          ee->request_code, ee->error_code);
     return g_xerrorxlib(dpy, ee); // may call exit
 }
 
@@ -158,8 +156,6 @@ void configurenotify(XEvent* event){
             XFreePixmap(gDisplay, dc.drawable);
          dc.drawable = XCreatePixmap(gDisplay, gRoot, ev->width, bar_height, DefaultDepth(gDisplay, gScreen));
       }
-      //update_bar(m);
-      //draw_bars();
    }
 }
 
@@ -251,7 +247,7 @@ void unmapnotify(XEvent* event) {
     XUnmapEvent *ev = &event->xunmap;
 
     if((client = wintosystrayicon(ev->window))) {
-		removesystrayicon(client);
+		remove_systray_icon(client);
 		resizebarwin(get_current_monitor());
 		updatesystray();
 	}

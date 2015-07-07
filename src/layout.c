@@ -189,23 +189,24 @@ void frame_destroy(Frame* frame, Window** buf, size_t* count) {
 }
 
 void monitor_apply_layout(Monitor* monitor) {
-    if (monitor) {
-        XRectangle rect = monitor->rect;
-        // apply pad
-        rect.y += bar_height;
-        rect.height -= bar_height;
-        // apply window gap
-        rect.x += window_gap;
-        rect.y += window_gap;
-        rect.height -= window_gap;
-        rect.width -= window_gap;
-        frame_apply_layout(monitor->tag->frame, rect);
-        
-        if (get_current_monitor() == monitor)
-            frame_focus_recursive(monitor->tag->frame);
-        
-        draw_bar(monitor); 
-    }
+
+   if(!monitor) return;
+
+   XRectangle rect = monitor->rect;
+   // apply pad
+   rect.y += bar_height;
+   rect.height -= bar_height;
+   // apply window gap
+   rect.x += window_gap;
+   rect.y += window_gap;
+   rect.height -= window_gap;
+   rect.width -= window_gap;
+   frame_apply_layout(monitor->tag->frame, rect);
+
+   if (get_current_monitor() == monitor)
+      frame_focus_recursive(monitor->tag->frame);
+
+   draw_bar(monitor); 
 }
 
 void set_layout(const Arg *arg) {

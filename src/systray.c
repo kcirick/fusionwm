@@ -8,11 +8,11 @@
 #include "config.h"
 #include "systray.h"
 
-unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 
 void systray_init(){
 	if(!systray_visible || gSystray) return;
 
+   unsigned long systray_orientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 	XSetWindowAttributes wa;
    Monitor *monitor = get_primary_monitor();
 
@@ -28,7 +28,7 @@ void systray_init(){
    wa.background_pixel  = dc.colors[0][ColBG];
    XSelectInput(gDisplay, gSystray->window, SubstructureNotifyMask);
    XChangeProperty(gDisplay, gSystray->window, g_netatom[NetSystemTrayOrientation], XA_CARDINAL, 32,
-         PropModeReplace, (unsigned char *)&systrayorientation, 1);
+         PropModeReplace, (unsigned char *)&systray_orientation, 1);
    XChangeWindowAttributes(gDisplay, gSystray->window, CWEventMask|CWOverrideRedirect|CWBackPixel|CWBackPixmap, &wa);
    XMapRaised(gDisplay, gSystray->window);
    XSetSelectionOwner(gDisplay, g_netatom[NetSystemTray], gSystray->window, CurrentTime);
@@ -110,10 +110,10 @@ void updatesystrayicongeom(Client *c, int w, int h) {
          c->last_size.width = (int) ((float)bar_height * ((float)c->last_size.width / (float)c->last_size.height));
       c->last_size.height = bar_height;
    }
-   c->float_size = c->last_size;
+   //c->float_size = c->last_size;
 }
 
-void removesystrayicon(Client *c) {
+void remove_systray_icon(Client *c) {
 	if(!systray_visible || !c) return;
 
 	Client **cc;

@@ -53,14 +53,6 @@ void ewmh_handle_client_message(XEvent* event) {
    XWindowAttributes wa;
 	XSetWindowAttributes swa;
    XClientMessageEvent* me = &(event->xclient);
-
-   int index;
-   for (index = 0; index < NetCOUNT; index++) {
-      if (me->message_type == g_netatom[index])
-         break;
-   }
-   if (index >= NetCOUNT) return;
-
    Client* client;
 
    if(systray_visible && 
@@ -103,7 +95,7 @@ void ewmh_handle_client_message(XEvent* event) {
    client = get_client_from_window(me->window);
    if (!client) return;
 
-   if(index == NetWmState){
+   if(me->message_type == g_netatom[NetWmState]){
       /* me->data.l[1] and [2] describe the properties to alter */
       for (int prop = 1; prop <= 2; prop++) {
          if (me->data.l[prop] == 0) continue;

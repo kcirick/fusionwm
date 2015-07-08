@@ -24,7 +24,7 @@ Other differences and features:
 
 A Screenshot:
 -------------
-<a href='http://s6.postimg.org/gtajwnv8h/screenshot.png' style="max-width=300px;"><img src='http://s6.postimg.org/gtajwnv8h/screenshot.png' /></a>
+<a href='http://s6.postimg.org/gtajwnv8h/screenshot.png'><img src='http://s6.postimg.org/gtajwnv8h/screenshot.png' style="max-width=450px;"/></a>
 
 Version Log:
 ------------

@@ -1,5 +1,7 @@
 //-- Appearance and Tags --------------------------------------------------
-static const char font[]               = "-*-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*";
+//static const char font[]               = "-*-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*";
+static const char font[]               = "-*-ohsnap-medium-r-*-*-12-*-*-*-*-*-*-*" ","
+                                         "-*-xbmicons-medium-r-*-*-12-*-*-*-*-*-*-*";
 static const int  window_gap           = 3;
 static const int  frame_border_width   = 1;
 static const int  window_border_width  = 2;
